@@ -75,6 +75,8 @@ h1 { margin-top: 0; }
 .tag-risk { background: #fee2e2; color: #991b1b; }
 .tag-engagement { background: #dbeafe; color: #1e40af; }
 .tag-firmographic { background: #f3e8ff; color: #6b21a8; }
+.tagrow { display: flex; gap: 6px; align-items: center; }
+.tag-ai { background: #0f172a; color: #fff; font-weight: 700; letter-spacing: 0.03em; }
 
 .small { font-size: 12px; }
 .link { color: #2563eb; text-decoration: none; font-weight: 600; }

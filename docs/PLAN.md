@@ -175,6 +175,10 @@ hundreds/thousands of reps.
 - **Source adapters** implement a `fetch` + `normalize` contract; registered in a
   registry. Adding a source is additive.
 - **IngestionRun** records status, counts, and errors per run.
+- **LLM insights (OpenAI):** rule-based insights are written at ingest, then **upgraded to
+  LLM-authored insights on the first lead-detail view and cached** (`insight_service`).
+  Lazy-by-design so an LLM call is spent only on leads a rep opens — cost tracks usage, not
+  catalog size — and it falls back to rule-based if the key is unset or a call fails.
 
 ### 3.2 From synchronous to scalable
 

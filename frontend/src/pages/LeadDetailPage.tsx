@@ -46,12 +46,14 @@ export default function LeadDetailPage() {
           <div className="cards">
             {lead.insights.map((i) => (
               <article key={i.id} className="card">
-                <span className={`tag tag-${i.type}`}>{i.type}</span>
+                <div className="tagrow">
+                  <span className={`tag tag-${i.type}`}>{i.type}</span>
+                  {(i.evidence as Record<string, unknown>)?.generated_by === "llm" && (
+                    <span className="tag tag-ai">AI</span>
+                  )}
+                </div>
                 <h3>{i.title}</h3>
                 {i.body && <p>{i.body}</p>}
-                <span className="muted small">
-                  confidence {(i.confidence * 100).toFixed(0)}%
-                </span>
               </article>
             ))}
             {lead.insights.length === 0 && <p className="muted">No insights.</p>}

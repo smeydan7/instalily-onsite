@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db
 from app.schemas.common import Page
 from app.schemas.lead import LeadCreate, LeadDetail, LeadRead
-from app.services import lead_service
+from app.services import insight_service, lead_service
 
 router = APIRouter(prefix="/leads", tags=["leads"])
 
@@ -45,6 +45,10 @@ def get_lead(lead_id: int, db: Session = Depends(get_db)) -> LeadDetail:
     lead = lead_service.get_lead_detail(db, lead_id)
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead not found")
+    # Generate rich LLM insights on first view (cached thereafter); falls back to the
+    # rule-based insights if the LLM is unconfigured or the call fails.
+    if lead.account and insight_service.ensure_llm_insights(db, lead.account):
+        lead = lead_service.get_lead_detail(db, lead_id)
     account = lead.account
     return LeadDetail(
         id=lead.id,

@@ -6,7 +6,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    # Read backend/.env first, then the repo-root .env (root wins for shared keys like
+    # OPENAI_API_KEY that live at the project root).
+    model_config = SettingsConfigDict(
+        env_file=(".env", "../.env"), env_file_encoding="utf-8", extra="ignore"
+    )
 
     app_name: str = "Roofing Sales Intelligence"
     environment: str = "local"
@@ -31,6 +35,12 @@ class Settings(BaseSettings):
     # GAF's own geocoder exactly). Without it we use offline pgeocode + a curated
     # override table. See app/integrations/gaf_coveo.py.
     google_maps_api_key: str = ""
+
+    # OpenAI — powers LLM-generated sales insights (lazy, per lead, cached).
+    # When unset, the pipeline falls back to rule-based insights.
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
+    openai_timeout_seconds: float = 30.0
 
     # Distributor branch/territory ZIPs the GAF pipeline ingests by default.
     # Override per run via the pipeline request config.

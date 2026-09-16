@@ -106,6 +106,11 @@ Edit `.env` if needed. The default `DATABASE_URL` points at the Docker Postgres:
 DATABASE_URL=postgresql+psycopg://sales:sales@localhost:5432/sales_intel
 ```
 
+**AI insights (OpenAI):** the backend also reads the **repo-root `.env`**, so an
+`OPENAI_API_KEY` there is picked up automatically. With it set, opening a lead generates
+LLM-authored sales insights (cached after first view). Without a key, leads fall back to
+rule-based insights — the app still works. Optional: `OPENAI_MODEL` (default `gpt-4o-mini`).
+
 You still need a Postgres running. Quickest option — start just the DB container:
 
 ```bash

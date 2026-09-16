@@ -1,7 +1,8 @@
 # Panel Presentation Guide
 
-Speaker notes for presenting the design and app. Every point is concise and
-scannable. Present top to bottom; each `##` is roughly one slide / talking beat.
+Speaker notes for presenting the design and app. Concise, scannable point form; each
+`##` is roughly one slide / talking beat. Sections 6–9 map the brief's objectives to
+exactly **how each was achieved**.
 
 ---
 
@@ -16,17 +17,29 @@ scannable. Present top to bottom; each `##` is roughly one slide / talking beat.
 
 ## 2. The Solution — in one line
 
-- A B2B sales intelligence platform that **pre-generates actionable leads and
-  account-planning insights** from public data, so reps review instead of research.
+- A B2B sales intelligence platform that **pre-generates ranked, explained leads** from
+  public data, so reps **identify, understand, and engage** decision makers fast — review
+  instead of research.
 
 ---
 
-## 3. What It Does
+## 3. How the Whole App Works — start to finish (plain English)
 
-- Pulls **certified roofing contractors** from GAF's public directory (our prospects).
-- Enriches, scores, and ranks them into **leads**.
-- Generates **insights** — recommendations and talking points for engaging them.
-- Presents everything in a clean UI built for **account planning**.
+Follow one rep's click:
+
+1. **Rep opens the app.** It loads with New York (ZIP 10013) already showing ranked leads.
+2. **Rep enters a ZIP + radius** (25/50/100 mi) and hits **Search** — their branch's area.
+3. **Behind the scenes**, the backend asks GAF's contractor directory for every certified
+   roofing contractor in that area.
+4. **The pipeline processes them:** cleans each record, adds signals (rating, reviews,
+   distance), scores each as a lead, and writes a few plain-English **insights**.
+5. **Everything is saved** to a database, de-duplicated so re-searching never doubles up.
+6. **The rep sees a ranked list** — same order as GAF's own site — with a fit score.
+7. **Rep clicks a lead** → a detail page: the contractor's profile, how to reach them, and
+   *why* they're worth a call (the insights).
+8. **Rep searches another ZIP** anytime; each search is that area's authoritative list.
+
+> One line: **public data in → ranked, explained leads out → reviewed in a clean UI.**
 
 ---
 
@@ -41,143 +54,193 @@ scannable. Present top to bottom; each `##` is roughly one slide / talking beat.
 ## 5. Architecture (high level)
 
 ```
-GAF directory (Coveo) → Pipeline → PostgreSQL → FastAPI → React UI
-                       (ingest·enrich·score·generate)
+GAF directory (Coveo)  →  Pipeline  →  PostgreSQL  →  FastAPI  →  React UI
+                        ingest·enrich·score·insights
 ```
 
 - **Frontend:** React + TypeScript (Vite).
 - **Backend:** FastAPI (Python), SQLAlchemy, Alembic.
 - **Data store:** PostgreSQL.
 - **Pipeline:** modular, stage-based, source-agnostic.
-- **Data source:** GAF contractor directory via its Coveo search API (see next slide).
+- **Data source:** GAF certified-contractor directory via its Coveo search API.
 
 ---
 
-## 5A. The Data Source — GAF via Coveo
+## 6. ✅ Objective 1 — Intuitive UI (how we achieved it)
 
-- GAF (major roofing manufacturer) publishes a **certified contractor directory**.
-- Those contractors = the distributor's prospects.
-- We skip HTML scraping — we call **Coveo**, the search engine behind GAF's site, directly.
-- **Flow:** ZIP → offline geocode (pgeocode) → Coveo search → 100 results in one call
-  (bypasses the site's 10-per-page limit).
-- **Per contractor we get:** name, rating, review count, city/state, phone, distance,
-  certification type, stable id.
-- **Exact replication:** using GAF's pipeline + `tab`/`context.sortingStrategy`, we return
-  the *same set in the same order* as the public site (verified 10013/25 mi → 83, first
-  ten position-for-position).
-- **UI just calls** `GET /api/v1/gaf-contractors?zip_code=90210` — no auth/keys client-side.
+**Goal:** reps can view the leads the system generates.
 
----
-
-## 5B. Turning Contractors into Leads
-
-- Each contractor → an **Account**; identity = `gaf_contractor_id` (dedup key).
-- **Signals we score on:** high rating + many reviews = active, established contractor =
-  strong lead. Distance = territory fit. Certification = product fit.
-- **Honest gap:** source gives company + phone, not a named decision maker → that's a
-  future **enrichment** step. (Good thing to raise before the panel does.)
+- **Lead-first design:** the landing page *is* the ranked lead list — no setup, opens on
+  10013 and self-seeds it.
+- **One primary action:** type a ZIP, pick a radius (25/50/100), Search. That's the whole
+  mental model.
+- **Ranked and explained:** each row shows GAF-rank position, a **fit score** (color
+  pill), rating + review count, and location.
+- **Scoped by search:** entering a ZIP scopes the list to that area; "show all
+  territories" clears it. Refine with score / min-number-of-ratings / company search.
+- **Lead detail page:** contractor profile, contact, and the generated **insights**
+  ("why this lead"), plus the GAF profile link.
+- **Polished + resilient:** consistent design system, first-class loading / empty / error
+  states, responsive down to laptop widths.
+- **Proof:** opens on 10013 → 83 leads, Allied Brothers Home Corporation first — matching
+  GAF's own ordering.
 
 ---
 
-## 6. Domain Model (the vocabulary)
+## 7. ✅ Objective 2 — Robust Data Management (how we achieved it)
 
-- **Account** — a prospect company.
-- **Contact** — a person at an account (the decision maker).
-- **Lead** — a scored, actionable opportunity tied to an account.
-- **Insight** — a generated recommendation for account planning.
-- **DataSource / IngestionRun** — registered sources + run history.
+**Goal:** store, organize, retrieve data; production-suitable.
 
----
+**Built now:**
+- **PostgreSQL** — relational, reliable, strong at the ranking/filtering leads need.
+- **Clear schema** — `accounts`, `contacts`, `leads`, `insights`, `data_sources`,
+  `ingestion_runs`; timestamps on every row.
+- **Flexible where messy** — JSON columns (`attributes`, `evidence`) absorb source-specific
+  fields without a migration per quirk.
+- **Indexed for the real queries** — `gaf_rank`, `origin_zip`, `state`, `rating`,
+  `review_count`, `score`, plus foreign keys.
+- **Identity & dedup** — upsert on `(source_key, external_id)` = `gaf_contractor_id`, so
+  overlapping searches never duplicate a contractor.
+- **Authoritative scopes** — re-searching a ZIP **reconciles** it (stale contractors
+  removed), so the data always reflects the latest search.
+- **Provenance** — every lead/insight traces to its source id + GAF profile URL.
+- **Schema versioning** — Alembic migrations configured (dev can auto-create for speed).
 
-## 7. The Pipeline — designed for scale
-
-- Four decoupled stages: **ingest → enrich → score → generate insights**.
-- Each stage is small and replaceable; pure logic separated from I/O.
-- New data source = one adapter class, zero core changes.
-- Runs tracked per source (status, records, errors) for reliability.
-- Scales out via a task queue and workers (design ready; see slide 10).
-
----
-
-## 8. The UI — built around the rep
-
-- **ZIP-driven:** a rep types a ZIP + radius → the system pulls & scores that territory's
-  contractors → the ranked lead list scopes to that ZIP.
-- Refine within scope by score, min number of ratings, company name.
-- **Order matches GAF's site** (their recommended ranking), with our lead score alongside.
-- Lead detail = contractor profile + contact + insights.
-- Clean, uncluttered, visually polished — review at a glance, act quickly.
-
----
-
-## 9. Data Management — production-minded
-
-- PostgreSQL: reliable, relational, strong querying for lead ranking.
-- Normalized core entities + JSON columns for source-specific fields.
-- Schema versioned with Alembic migrations.
-- **Provenance tracked** — every lead/insight traces back to source records.
-- Future: read replicas, caching, partitioning, soft-deletes/audit (see plan).
+**→ Evolve to full production (we were time-limited here):**
+- **Read replicas** for the rep read load; writes to primary.
+- **Connection pooling** (PgBouncer) as connections grow.
+- **Redis cache** for hot lead lists / reference data.
+- **Soft-deletes + audit log** instead of hard deletes; full change history.
+- **Backups + point-in-time recovery**, slow-query monitoring, alerting.
+- **Partitioning / archival** of old ingestion runs and cold leads.
+- **Multi-tenant access control** (row-level security) to scope reps/teams to their book.
+- **A first-class `search`/`territory` table** (many-to-many to accounts) so a contractor
+  can belong to several overlapping searches — replacing today's last-write-wins `origin_zip`.
 
 ---
 
-## 10. Scalability Story (the panel will ask)
+## 8. ✅ Objective 3 — Scalable Pipeline, explained end-to-end
 
-- **Pipeline:** queue + horizontal workers; idempotent, incremental, retried.
-- **Serving thousands of reps:** reads dominate — scale with replicas + caching.
-- Pre-compute leads/insights offline so the UI is always fast.
-- Stateless API → scale horizontally behind a load balancer.
-- Bounded by the DB, which we scale independently.
+**Goal:** a pipeline designed for scale (hundreds→thousands of reps).
+
+### The pipeline, start to finish
+1. **Trigger** — a ZIP search (or a scheduled territory job) calls the orchestrator with a
+   `source_key` + config (`zips`, `radius`).
+2. **Geocode** — ZIP → lat/lon, matching GAF's own geocoder (override table → Google key →
+   offline `pgeocode` fallback).
+3. **Ingest (source adapter)** — `GafContractorSource` builds GAF's exact Coveo query and
+   **paginates** through every contractor in the radius. Each becomes a normalized
+   `AccountCandidate`. *New source = one new adapter class; nothing downstream changes.*
+4. **Enrich** — pure functions add derived signals (e.g. review-activity band). No I/O.
+5. **Score** — transparent weighted score (0–100) over rating, review volume, proximity.
+6. **Generate insights** — rule-based recommendations at ingest, **upgraded to LLM
+   (OpenAI) insights on first lead-detail view** and cached (see slide 9).
+7. **Persist** — upsert the account, sync contact, upsert the primary lead, regenerate
+   insights, record `gaf_rank`.
+8. **Reconcile & record** — make the ZIP authoritative (remove stale), and log the
+   `IngestionRun` (status, records, errors).
+
+### Why it scales
+- **Decoupled stages** — each is small and independently replaceable/scalable; pure
+  compute (enrich/score/insights) separated from I/O.
+- **Pre-compute, then serve** — heavy work runs in the pipeline; the rep-facing API just
+  reads ready rows. This is the key to serving many reps cheaply.
+- **Geographic fan-out** — ingestion is a list of `(zip, radius)` jobs (one per branch),
+  which parallelize cleanly across workers.
+- **Idempotent & safe** — upsert on stable id; re-runs don't duplicate; commit-per-record
+  is restart-safe.
+- **Queue-ready** — the entry point (`run_source_background`) is shaped to move from
+  FastAPI background tasks to a real task queue (Celery/RQ/Arq) with no call-site changes.
+- **Stateless API** — scale horizontally behind a load balancer; the DB scales separately.
 
 ---
 
-## 11. What's Built vs. What's Planned
+## 9. ✅ AI-powered insights (built)
 
-- **Built + verified end-to-end:** live GAF source → pipeline ingest (`GafContractorSource`,
-  upsert on `gaf_contractor_id`) → scored leads with insights → polished rep UI (ranked
-  leads list, filters, lead detail, one-click "pull a territory").
-- **Demo proof:** search a ZIP, leads appear in GAF's exact order and count; re-run
-  doesn't duplicate.
-- **Planned (designed, not built):** task queue + workers, incremental ingest, contact
-  enrichment (named decision makers), auth/roles, caching/replicas.
-- Adapter design let GAF flow through **without reworking anything downstream**.
+- **What it does:** an **LLM (OpenAI)** writes the rep-facing insights on each lead —
+  concrete talking points to **identify, understand, and engage** the decision maker
+  (why-now signals, how to open, product/volume angles), grounded in the contractor's real
+  data (rating, reviews, certification, proximity).
+- **Where the rep sees it:** open a lead → the "Why this lead" cards are AI-authored,
+  tagged **AI**, with evidence/provenance stored.
+- **Scale-smart design — lazy + cached:** we do **not** call the LLM for every contractor
+  at ingest. Insights are generated on **first lead-detail view** and cached, so we only
+  spend an LLM call on leads a rep actually opens — this is what keeps it affordable across
+  thousands of reps.
+- **Safe fallback:** the score is deterministic; if the LLM key is unset or a call fails,
+  the lead keeps its rule-based insights. No hard dependency, no broken page.
+- **Clean seam:** insight generation is its own stage — swapping models (or moving to a
+  learned scorer) is a local change, not a rewrite.
 
 ---
 
-## 12. Key Design Decisions (defend these)
+## 10. The Data Source — GAF via Coveo (and exact-match)
 
-- **Modular pipeline stages** — swap/scale any stage independently.
-- **Source adapter pattern** — new sources are additive, not invasive.
+- GAF (major roofing manufacturer) publishes a **certified contractor directory** — those
+  contractors are the distributor's prospects.
+- We skip HTML scraping and call **Coveo**, the search engine behind GAF's site, directly.
+- **Exact replication:** GAF's pipeline + `tab=defaultTab` +
+  `context.sortingStrategy=gafrecommended-initial` → identical set and order as the site.
+- **Geocoding matched to GAF** so counts are exact at every radius. Verified for 10013:
+  **25→83, 50→173, 100→361**, first ten position-for-position.
+- **Per contractor:** name, rating, review count, city/state, phone, distance,
+  certification type, stable id, GAF profile URL.
+- **Honest gap:** the source gives company + phone, **not a named decision maker** — a
+  future enrichment step (surfaced, not hidden).
+
+---
+
+## 11. Key Design Decisions (defend these)
+
+- **Modular pipeline stages** — swap/scale any stage independently; AI drops into one.
+- **Source adapter pattern** — new data sources are additive, not invasive.
+- **Exact-match the source** — replicate GAF's query + geocoding so reps trust the data.
+- **Pre-compute over on-demand** — keeps the rep UI fast at scale.
 - **JSON attribute columns** — absorb messy public data without constant migrations.
-- **Pre-compute over on-demand** — keeps the rep-facing UI fast at scale.
-- **Provenance everywhere** — trust and traceability for generated insights.
+- **Provenance everywhere** — trust and traceability for every generated lead/insight.
+
+---
+
+## 12. What's Built vs. What's Planned
+
+- **Built + verified end-to-end:** exact-match GAF source → pipeline (ingest, enrich,
+  score, insights, upsert, reconcile, run tracking) → scored/ranked leads → polished rep
+  UI (ZIP search, scoping, filters, lead detail).
+- **Demo proof:** search a ZIP → leads in GAF's exact order and count; change radius →
+  set updates correctly; re-run → no duplicates.
+- **Planned (designed, outlined):** task queue + workers, incremental ingest, LLM insight
+  generation, named-decision-maker enrichment, auth/roles, caching/replicas.
 
 ---
 
 ## 13. Closing
 
 - Turns scattered public data into a ranked, explained, ready-to-action lead list.
-- Saves rep time, standardizes outreach, surfaces the right decision makers.
-- Built to grow from one team to thousands of reps.
+- Reps **identify** (ranked leads), **understand** (score + insights), **engage**
+  (contact + talking points) — the exact brief.
+- Production-minded foundation, built to grow from one team to thousands of reps.
 
 ---
 
 ## Likely Panel Questions — quick answers
 
-- **"Why call Coveo directly instead of scraping the site?"** — Faster and more robust:
-  we get clean structured fields, and one call returns 100 results vs. the site's 10 per
-  page. No brittle HTML parsing.
-- **"How do you geocode without an external API?"** — `pgeocode` translates ZIP → lat/lon
-  offline from a local postal DB. Low-latency, no third-party dependency.
-- **"You only get a company + phone — how do you engage a decision maker?"** — Honest
-  gap. We surface the company + phone now and plan a contact-enrichment step to add named
-  decision makers. Called out in the plan.
-- **"How do you avoid duplicate contractors?"** — Overlapping ZIP searches repeat records;
-  we upsert on the stable `gaf_contractor_id`, so re-runs are idempotent.
-- **"Why Postgres, not NoSQL?"** — Relational fits ranking/filtering leads; JSON columns
-  cover flexible source fields. Best of both.
-- **"How does it scale to thousands of reps?"** — Reads dominate; pre-compute + cache +
-  replicas. API is stateless; pipeline fans out per territory ZIP across workers.
-- **"How do you trust a generated insight?"** — Every insight stores its evidence and
-  provenance (source + `gaf_contractor_id` + GAF profile link).
-- **"What next with more time?"** — Pipeline ingest, contact enrichment, task queue,
-  auth/roles, UI polish. All in `PLAN.md`.
+- **"Is it really AI?"** — Yes: an OpenAI LLM writes the rep-facing insights per lead
+  (lazy + cached), grounded in the contractor's real data. The deterministic score is a
+  safe fallback if the LLM is unavailable.
+- **"Isn't calling an LLM per contractor expensive at scale?"** — We don't. Insights are
+  generated only on the leads a rep opens (first view), then cached — so cost tracks
+  actual usage, not catalog size.
+- **"Why call Coveo directly instead of scraping?"** — Clean structured fields, and we can
+  replicate GAF's exact query; no brittle HTML parsing.
+- **"How do you know the data matches GAF?"** — Same pipeline + `tab`/`context`, and
+  geocoding matched to GAF's coordinates. Verified 10013: 25→83, 50→173, 100→361.
+- **"How do you engage a decision maker with only a company + phone?"** — Honest gap; we
+  surface company + phone now and plan named-contact enrichment.
+- **"How do you avoid duplicates / stale data?"** — Upsert on `gaf_contractor_id`; each ZIP
+  search reconciles its scope (removes stale). Verified re-runs stay flat.
+- **"Why Postgres, not NoSQL?"** — Relational fits ranking/filtering; JSON columns cover
+  flexible source fields. Best of both.
+- **"How does it scale to thousands of reps?"** — Pre-compute + cache + read replicas;
+  stateless API; pipeline fans out per territory ZIP across workers.
+- **"What would you build next?"** — Task queue, LLM insights, contact enrichment,
+  auth/roles, caching/replicas. Detailed in `PLAN.md`.
