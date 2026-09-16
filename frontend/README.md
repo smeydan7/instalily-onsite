@@ -21,7 +21,7 @@ src/
 ├── main.tsx            app bootstrap (router + react-query providers)
 ├── App.tsx             shell + routes
 ├── api/                typed API client + shared types
-├── pages/              route screens: Leads (list), LeadDetail, Accounts, Insights
+├── pages/              route screens: Leads (list), LeadDetail
 └── components/         ui.tsx (score/status/rating/state), IngestPanel
 ```
 

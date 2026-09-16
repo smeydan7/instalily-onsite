@@ -1,13 +1,5 @@
 // Minimal typed API client. Swap fetch for a richer layer if needed.
-import type {
-  Account,
-  IngestionRun,
-  Insight,
-  Lead,
-  LeadDetail,
-  LeadFilters,
-  Page,
-} from "./types";
+import type { Lead, LeadDetail, LeadFilters, Page } from "./types";
 
 const BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 const V1 = `${BASE}/api/v1`;
@@ -45,12 +37,6 @@ export const api = {
 
   getLead: (id: number) => request<LeadDetail>(`/leads/${id}`),
 
-  listAccounts: (limit = 50, offset = 0) =>
-    request<Page<Account>>(`/accounts?limit=${limit}&offset=${offset}`),
-
-  listInsights: (accountId?: number) =>
-    request<Page<Insight>>(`/insights${accountId ? `?account_id=${accountId}` : ""}`),
-
   // Pipeline
   triggerIngest: (zips: string[], radius: number) =>
     request<{ status: string; source_key: string }>(`/pipeline/run`, {
@@ -60,6 +46,4 @@ export const api = {
         config: { zips, radius },
       }),
     }),
-
-  listRuns: () => request<IngestionRun[]>(`/pipeline/runs`),
 };

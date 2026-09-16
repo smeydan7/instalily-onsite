@@ -93,10 +93,14 @@ reps **view the leads the system generates**.
 
 1. Design tokens + shared components (table, card, tag, states).
 2. Leads list with server-driven filter/sort/pagination.
-3. Lead detail view.
-4. ZIP search + scope, default territory.
-5. Accounts + Insights secondary pages.
-6. Polish pass: spacing, empty states, transitions, responsiveness.
+3. Lead detail view (with AI insights).
+4. ZIP search + scope, default territory, column sorting.
+5. Polish pass: spacing, empty states, transitions, responsiveness.
+
+> The UI is deliberately focused on **Leads list → Lead detail**. Early standalone
+> Accounts/Insights pages were dropped — accounts are shown better as leads, and insights
+> now live per-lead (AI-written on view), so a global feed was redundant. The `accounts`
+> and `insights` REST endpoints remain for API completeness.
 
 ---
 

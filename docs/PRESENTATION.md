@@ -90,6 +90,9 @@ GAF directory (Coveo) → Pipeline → PostgreSQL → FastAPI → React UI
   this lead", tagged AI), and the GAF profile link.
 - **Polished + resilient:** consistent design system, first-class loading / empty / error
   states, responsive down to laptop widths.
+- **Focused by design:** just two screens — the ranked **Leads list** and the **Lead
+  detail**. (Early standalone Accounts/Insights pages were dropped: accounts are shown
+  better as leads, and insights now live per-lead, AI-written on view.)
 - **Proof:** opens on 10013 → 83 leads, Allied Brothers Home Corporation first — matching
   GAF's own ordering.
 
