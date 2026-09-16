@@ -19,7 +19,7 @@ identify, understand, and engage decision makers.
 ## Architecture
 
 ```
-                 public data sources (TBD)
+              GAF contractor directory (Coveo)
                           │
         ┌─────────────────┴──────────────────┐
         │            Pipeline                 │
@@ -37,16 +37,24 @@ identify, understand, and engage decision makers.
 - **Backend** — FastAPI, SQLAlchemy, Alembic, Pydantic. See `backend/README.md`.
 - **Frontend** — React + TypeScript + Vite. See `frontend/README.md`.
 - **DB** — PostgreSQL.
+- **Data source** — GAF certified-contractor directory via its Coveo search API.
+  Live endpoint: `GET /api/gaf-contractors?zip_code=90210`. See `docs/PLAN.md` §4.
 
 ## Domain model
 
 | Entity     | Meaning                                                              |
 |------------|---------------------------------------------------------------------|
-| `Account`  | A prospect company (contractor, builder) the rep may sell to.        |
-| `Contact`  | A person at an account — the decision maker to engage.              |
+| `Account`  | A prospect company — a GAF-certified roofing contractor.            |
+| `Contact`  | A person/channel at an account — the decision maker to engage.      |
 | `Lead`     | A scored, actionable opportunity tied to an account.                |
 | `Insight`  | A generated recommendation/finding for account planning.           |
 | `DataSource` | A registered public source and its ingestion run metadata.        |
+
+## Docs
+
+- [`docs/SETUP.md`](docs/SETUP.md) — set up and run (whole stack, or backend/frontend separately).
+- [`docs/PLAN.md`](docs/PLAN.md) — detailed implementation plan (UI, data management, scalable pipeline).
+- [`docs/PRESENTATION.md`](docs/PRESENTATION.md) — panel presentation speaker guide.
 
 ## Quick start
 
