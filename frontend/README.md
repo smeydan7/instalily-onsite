@@ -21,9 +21,13 @@ src/
 ├── main.tsx            app bootstrap (router + react-query providers)
 ├── App.tsx             shell + routes
 ├── api/                typed API client + shared types
-├── pages/             route-level screens (Accounts, Leads, Insights)
-└── components/        reusable UI pieces
+├── pages/              route screens: Leads (list), LeadDetail, Accounts, Insights
+└── components/         ui.tsx (score/status/rating/state), IngestPanel
 ```
+
+The Leads page is the centerpiece: ranked leads with filters (status, score, rating,
+state, search), a row → lead detail, inline status changes, and an **ingest panel** that
+pulls a territory of GAF contractors into the pipeline.
 
 State/data fetching uses `@tanstack/react-query`. Keep API types in `src/api/types.ts`
 in sync with the backend Pydantic schemas.

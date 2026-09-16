@@ -1,6 +1,7 @@
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import AccountsPage from "./pages/AccountsPage";
 import LeadsPage from "./pages/LeadsPage";
+import LeadDetailPage from "./pages/LeadDetailPage";
 import InsightsPage from "./pages/InsightsPage";
 
 const nav = [
@@ -26,6 +27,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/leads" replace />} />
           <Route path="/leads" element={<LeadsPage />} />
+          <Route path="/leads/:id" element={<LeadDetailPage />} />
           <Route path="/accounts" element={<AccountsPage />} />
           <Route path="/insights" element={<InsightsPage />} />
         </Routes>
