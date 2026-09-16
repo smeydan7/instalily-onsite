@@ -53,6 +53,8 @@ h1 { margin-top: 0; }
   border-bottom: 1px solid #e2e8f0;
 }
 .grid th { background: #f1f5f9; }
+.grid th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.grid th.sortable:hover { background: #e2e8f0; }
 
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
 .card {

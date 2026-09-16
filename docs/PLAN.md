@@ -49,8 +49,9 @@ reps **view the leads the system generates**.
   (`?origin_zip=`). "Show all territories" clears the scope. This is the main way reps
   drive the tool. **Defaults to 10013 (New York) on open** and self-seeds it on first run.
 - **Refine within scope:** score range, min number of ratings, company-name search.
-- **Sort:** score descending by default (rating/reviews/distance available as future
-  toggles).
+- **Column sorting (built):** click a table header to sort the full result set
+  server-side — **Score**, **Company** (alphabetical), or **Rating**; click again to flip
+  direction. **#** returns to GAF's recommended order (the default). Location isn't sorted.
 - **Scoping model:** each account stores the `origin_zip` that surfaced it
   (last-write-wins). Good enough now; a future many-to-many (a lead can belong to several
   overlapping searched ZIPs) is noted in §4.

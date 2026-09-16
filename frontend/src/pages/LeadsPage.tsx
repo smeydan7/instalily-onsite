@@ -2,8 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
-import type { LeadFilters } from "../api/types";
+import type { LeadFilters, SortField, SortOrder } from "../api/types";
 import { ScorePill, Rating, StateBlock } from "../components/ui";
+
+// Default sort direction when a column is first clicked.
+const DEFAULT_DIR: Record<SortField, SortOrder> = {
+  rank: "asc",
+  score: "desc",
+  name: "asc",
+  rating: "desc",
+};
 
 // New York (10013) is the default territory shown on open.
 const DEFAULT_ZIP = "10013";
@@ -16,11 +24,23 @@ export default function LeadsPage() {
   const [radius, setRadius] = useState(25);
   const [activeZip, setActiveZip] = useState<string | undefined>(DEFAULT_ZIP);
   const [refining, setRefining] = useState<Omit<LeadFilters, "origin_zip">>({});
+  const [sort, setSort] = useState<SortField>("rank");
+  const [order, setOrder] = useState<SortOrder>("asc");
   const [searching, setSearching] = useState(false);
   const didSeed = useRef(false);
   const qc = useQueryClient();
 
-  const filters: LeadFilters = { ...refining, origin_zip: activeZip };
+  const filters: LeadFilters = { ...refining, origin_zip: activeZip, sort, order };
+
+  const toggleSort = (field: SortField) => {
+    if (sort === field) setOrder((o) => (o === "asc" ? "desc" : "asc"));
+    else {
+      setSort(field);
+      setOrder(DEFAULT_DIR[field]);
+    }
+  };
+  const arrow = (field: SortField) =>
+    sort === field ? (order === "asc" ? " ▲" : " ▼") : "";
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["leads", filters],
@@ -168,10 +188,18 @@ export default function LeadsPage() {
         <table className="grid">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Score</th>
-              <th>Company</th>
-              <th>Rating</th>
+              <th className="sortable" onClick={() => toggleSort("rank")}>
+                #{arrow("rank")}
+              </th>
+              <th className="sortable" onClick={() => toggleSort("score")}>
+                Score{arrow("score")}
+              </th>
+              <th className="sortable" onClick={() => toggleSort("name")}>
+                Company{arrow("name")}
+              </th>
+              <th className="sortable" onClick={() => toggleSort("rating")}>
+                Rating{arrow("rating")}
+              </th>
               <th>Location</th>
             </tr>
           </thead>

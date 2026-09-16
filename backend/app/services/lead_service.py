@@ -8,6 +8,14 @@ from app.models.account import Account
 from app.models.lead import Lead
 from app.schemas.lead import LeadCreate
 
+# Sortable columns exposed to the UI. Default is GAF's recommended rank.
+_SORT_COLUMNS = {
+    "rank": Account.gaf_rank,
+    "score": Lead.score,
+    "name": func.lower(Account.name),
+    "rating": Account.rating,
+}
+
 
 def list_leads(
     db: Session,
@@ -17,6 +25,8 @@ def list_leads(
     min_reviews: int | None = None,
     origin_zip: str | None = None,
     search: str | None = None,
+    sort: str = "rank",
+    order: str = "asc",
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list[Lead], int]:
@@ -34,10 +44,13 @@ def list_leads(
         stmt = stmt.where(Account.name.ilike(f"%{search}%"))
 
     total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+
+    column = _SORT_COLUMNS.get(sort, Account.gaf_rank)
+    direction = column.desc() if order == "desc" else column.asc()
     rows = db.scalars(
         stmt.options(selectinload(Lead.account))
-        # GAF recommended order (nulls last), then a stable tiebreak.
-        .order_by(Account.gaf_rank.asc().nulls_last(), Lead.id.asc())
+        # Chosen sort (nulls last), then a stable tiebreak.
+        .order_by(direction.nulls_last(), Lead.id.asc())
         .limit(limit)
         .offset(offset)
     ).all()

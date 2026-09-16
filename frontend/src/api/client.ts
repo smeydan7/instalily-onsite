@@ -34,6 +34,8 @@ function leadQuery(filters: LeadFilters, limit: number, offset: number): string 
   if (filters.state) p.set("state", filters.state);
   if (filters.origin_zip) p.set("origin_zip", filters.origin_zip);
   if (filters.search) p.set("search", filters.search);
+  if (filters.sort) p.set("sort", filters.sort);
+  if (filters.order) p.set("order", filters.order);
   return p.toString();
 }
 

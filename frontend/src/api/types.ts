@@ -81,10 +81,15 @@ export interface IngestionRun {
   error?: string | null;
 }
 
+export type SortField = "rank" | "score" | "name" | "rating";
+export type SortOrder = "asc" | "desc";
+
 export interface LeadFilters {
   min_score?: number;
   min_reviews?: number;
   state?: string;
   origin_zip?: string;
   search?: string;
+  sort?: SortField;
+  order?: SortOrder;
 }

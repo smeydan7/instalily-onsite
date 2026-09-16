@@ -76,6 +76,8 @@ GAF directory (Coveo)  →  Pipeline  →  PostgreSQL  →  FastAPI  →  React 
   mental model.
 - **Ranked and explained:** each row shows GAF-rank position, a **fit score** (color
   pill), rating + review count, and location.
+- **Sortable:** click a header to sort the full list by **Score**, **Company** (A–Z), or
+  **Rating** (click again to reverse); **#** restores GAF's recommended order.
 - **Scoped by search:** entering a ZIP scopes the list to that area; "show all
   territories" clears it. Refine with score / min-number-of-ratings / company search.
 - **Lead detail page:** contractor profile, contact, and the generated **insights**

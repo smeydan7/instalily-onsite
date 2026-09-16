@@ -18,6 +18,8 @@ def list_leads(
     min_reviews: int | None = Query(None, ge=0, description="Min number of ratings"),
     origin_zip: str | None = Query(None, description="Scope to a searched ZIP"),
     search: str | None = Query(None, description="Match account name"),
+    sort: str = Query("rank", pattern="^(rank|score|name|rating)$"),
+    order: str = Query("asc", pattern="^(asc|desc)$"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
@@ -29,6 +31,8 @@ def list_leads(
         min_reviews=min_reviews,
         origin_zip=origin_zip,
         search=search,
+        sort=sort,
+        order=order,
         limit=limit,
         offset=offset,
     )
