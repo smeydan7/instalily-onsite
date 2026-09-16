@@ -15,7 +15,7 @@ router = APIRouter(prefix="/leads", tags=["leads"])
 def list_leads(
     min_score: float | None = Query(None, ge=0, le=100),
     state: str | None = Query(None, description="2-letter state code"),
-    min_rating: float | None = Query(None, ge=0, le=5),
+    min_reviews: int | None = Query(None, ge=0, description="Min number of ratings"),
     origin_zip: str | None = Query(None, description="Scope to a searched ZIP"),
     search: str | None = Query(None, description="Match account name"),
     limit: int = Query(50, ge=1, le=200),
@@ -26,7 +26,7 @@ def list_leads(
         db,
         min_score=min_score,
         state=state,
-        min_rating=min_rating,
+        min_reviews=min_reviews,
         origin_zip=origin_zip,
         search=search,
         limit=limit,

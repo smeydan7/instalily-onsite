@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     coveo_default_radius_miles: int = 25
     coveo_timeout_seconds: float = 15.0
 
+    # Optional Google Geocoding key. When set, ZIPs are geocoded via Google (matching
+    # GAF's own geocoder exactly). Without it we use offline pgeocode + a curated
+    # override table. See app/integrations/gaf_coveo.py.
+    google_maps_api_key: str = ""
+
     # Distributor branch/territory ZIPs the GAF pipeline ingests by default.
     # Override per run via the pipeline request config.
     gaf_territory_zips: list[str] = ["10013", "90210", "60601"]

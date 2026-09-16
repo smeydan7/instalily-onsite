@@ -10,6 +10,7 @@ are read from settings, not hardcoded, so they can be rotated per environment.
 from __future__ import annotations
 
 import math
+from functools import lru_cache
 from typing import Any
 
 import httpx
@@ -22,6 +23,14 @@ logger = get_logger(__name__)
 
 # US postal-code database, loaded once for fast offline lookups.
 _nomi = pgeocode.Nominatim("us")
+
+# Curated ZIP -> (lat, lon) overrides that match GAF's own geocoder exactly, so
+# results are identical to the public site (incl. the 100-mile boundary). GAF uses a
+# proprietary geocoder (Google); free offline geocoders are ~0.4 mi off, which flips a
+# single contractor at the largest radius. Add entries here, or set a Google key below.
+_ZIP_COORD_OVERRIDES: dict[str, tuple[float, float]] = {
+    "10013": (40.7217861, -74.0094471),
+}
 
 
 class InvalidZipError(ValueError):
@@ -37,8 +46,45 @@ class CoveoError(RuntimeError):
         self.detail = detail
 
 
+def _google_geocode(zip_code: str) -> tuple[float, float] | None:
+    """Geocode a ZIP via Google (matches GAF exactly). Returns None on any failure."""
+    try:
+        resp = httpx.get(
+            "https://maps.googleapis.com/maps/api/geocode/json",
+            params={
+                "components": f"postal_code:{zip_code}|country:US",
+                "key": settings.google_maps_api_key,
+            },
+            timeout=settings.coveo_timeout_seconds,
+        )
+        data = resp.json()
+        if data.get("status") == "OK":
+            loc = data["results"][0]["geometry"]["location"]
+            return float(loc["lat"]), float(loc["lng"])
+        logger.warning("Google geocode for %s returned %s", zip_code, data.get("status"))
+    except Exception:  # noqa: BLE001 — fall back to pgeocode
+        logger.exception("Google geocode failed for %s", zip_code)
+    return None
+
+
+@lru_cache(maxsize=4096)
 def geocode_zip(zip_code: str) -> tuple[float, float]:
-    """Translate a US ZIP to (lat, lon) offline. Raises InvalidZipError."""
+    """Translate a US ZIP to (lat, lon). Raises InvalidZipError.
+
+    Resolution order, best-match-to-GAF first:
+      1. Curated override table (exact GAF coordinates).
+      2. Google Geocoding, if an API key is configured (matches GAF's geocoder).
+      3. Offline pgeocode (exact at typical radii; may differ by one contractor at the
+         100-mile boundary).
+    """
+    if zip_code in _ZIP_COORD_OVERRIDES:
+        return _ZIP_COORD_OVERRIDES[zip_code]
+
+    if settings.google_maps_api_key:
+        coord = _google_geocode(zip_code)
+        if coord is not None:
+            return coord
+
     location = _nomi.query_postal_code(zip_code)
     if location is None or math.isnan(location.latitude):
         raise InvalidZipError(f"Invalid or unrecognized ZIP code: {zip_code}")

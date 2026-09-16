@@ -83,7 +83,7 @@ export interface IngestionRun {
 
 export interface LeadFilters {
   min_score?: number;
-  min_rating?: number;
+  min_reviews?: number;
   state?: string;
   origin_zip?: string;
   search?: string;

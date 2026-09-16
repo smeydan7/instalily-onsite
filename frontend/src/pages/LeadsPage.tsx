@@ -12,6 +12,7 @@ export default function LeadsPage() {
   // ZIP search is the primary driver: entering a ZIP ingests that territory and
   // scopes the list to it. Secondary filters refine within the current scope.
   const [zip, setZip] = useState(DEFAULT_ZIP);
+  // GAF's site offers these fixed radii; we mirror them so results match exactly.
   const [radius, setRadius] = useState(25);
   const [activeZip, setActiveZip] = useState<string | undefined>(DEFAULT_ZIP);
   const [refining, setRefining] = useState<Omit<LeadFilters, "origin_zip">>({});
@@ -27,19 +28,17 @@ export default function LeadsPage() {
     refetchInterval: searching ? 1500 : false,
   });
 
-  // Stop the "searching" spinner once scoped results arrive.
-  useEffect(() => {
-    if (searching && (data?.total ?? 0) > 0) setSearching(false);
-  }, [searching, data]);
-
   const ingest = useMutation({
     mutationFn: (target: { zip: string; radius: number }) =>
       api.triggerIngest([target.zip], target.radius),
     onSuccess: (_res, target) => {
       setActiveZip(target.zip);
       setSearching(true);
-      // Safety: stop polling after ~20s even if nothing came back.
-      setTimeout(() => setSearching(false), 20000);
+      // Ingest runs in the background and commits as it goes. Force a refetch now
+      // and keep polling briefly so the list reflects the new radius even when the
+      // ZIP (and therefore the query key) is unchanged.
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      setTimeout(() => setSearching(false), 8000);
     },
   });
 
@@ -98,13 +97,11 @@ export default function LeadsPage() {
           </label>
           <label>
             Radius (mi)
-            <input
-              type="number"
-              value={radius}
-              min={1}
-              max={100}
-              onChange={(e) => setRadius(Number(e.target.value))}
-            />
+            <select value={radius} onChange={(e) => setRadius(Number(e.target.value))}>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
           </label>
           <button onClick={runSearch} disabled={ingest.isPending || zip.length !== 5}>
             {ingest.isPending ? "Starting…" : "Search"}
@@ -142,14 +139,14 @@ export default function LeadsPage() {
           />
         </label>
         <label className="range">
-          Min rating {refining.min_rating ?? 0}
+          Min number of ratings {refining.min_reviews ?? 0}
           <input
             type="range"
             min={0}
-            max={5}
-            step={0.5}
-            value={refining.min_rating ?? 0}
-            onChange={(e) => set({ min_rating: Number(e.target.value) || undefined })}
+            max={300}
+            step={10}
+            value={refining.min_reviews ?? 0}
+            onChange={(e) => set({ min_reviews: Number(e.target.value) || undefined })}
           />
         </label>
       </div>

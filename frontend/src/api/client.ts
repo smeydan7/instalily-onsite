@@ -30,7 +30,7 @@ function leadQuery(filters: LeadFilters, limit: number, offset: number): string 
   p.set("limit", String(limit));
   p.set("offset", String(offset));
   if (filters.min_score != null) p.set("min_score", String(filters.min_score));
-  if (filters.min_rating != null) p.set("min_rating", String(filters.min_rating));
+  if (filters.min_reviews != null) p.set("min_reviews", String(filters.min_reviews));
   if (filters.state) p.set("state", filters.state);
   if (filters.origin_zip) p.set("origin_zip", filters.origin_zip);
   if (filters.search) p.set("search", filters.search);

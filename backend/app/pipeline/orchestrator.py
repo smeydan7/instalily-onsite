@@ -136,6 +136,24 @@ def _persist(db: Session, candidate: AccountCandidate) -> None:
     _regenerate_insights(db, account, candidate)
 
 
+def _reconcile_scopes(db: Session, scoped: dict[str, set[str]]) -> None:
+    """Make each searched ZIP authoritative for its scope.
+
+    Deletes contractors previously tagged to a ZIP that are no longer in that ZIP's
+    latest result set — so shrinking the radius shrinks the list, instead of leaving
+    stale accounts unioned in. Child rows (leads, contacts, insights) cascade.
+    """
+    for zip_code, ids in scoped.items():
+        stale = db.scalars(
+            select(Account).where(
+                Account.origin_zip == zip_code,
+                Account.external_id.notin_(ids),
+            )
+        ).all()
+        for account in stale:
+            db.delete(account)
+
+
 def run_source(db: Session, source_key: str, *, config: dict | None = None) -> IngestionRun:
     """Run the full pipeline for one registered source and record the run."""
     source_cls = SOURCE_REGISTRY.get(source_key)
@@ -150,6 +168,9 @@ def run_source(db: Session, source_key: str, *, config: dict | None = None) -> I
 
     source = source_cls(config=config)
     count = 0
+    # Per-ZIP set of contractor ids seen this run — used to reconcile each ZIP's scope
+    # so re-searching a ZIP (e.g. a smaller radius) replaces its set instead of unioning.
+    scoped: dict[str, set[str]] = {}
     try:
         for record in source.fetch():
             candidate = source.normalize(record)
@@ -157,8 +178,12 @@ def run_source(db: Session, source_key: str, *, config: dict | None = None) -> I
                 continue
             candidate = _process(candidate)
             _persist(db, candidate)
+            if candidate.origin_zip and candidate.external_id:
+                scoped.setdefault(candidate.origin_zip, set()).add(candidate.external_id)
             count += 1
             db.commit()  # commit per record → idempotent, restart-safe
+        _reconcile_scopes(db, scoped)
+        db.commit()
         run.status = IngestionStatus.SUCCEEDED
     except Exception as exc:  # noqa: BLE001
         db.rollback()

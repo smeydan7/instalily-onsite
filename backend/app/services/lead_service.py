@@ -14,7 +14,7 @@ def list_leads(
     *,
     min_score: float | None = None,
     state: str | None = None,
-    min_rating: float | None = None,
+    min_reviews: int | None = None,
     origin_zip: str | None = None,
     search: str | None = None,
     limit: int = 50,
@@ -26,8 +26,8 @@ def list_leads(
         stmt = stmt.where(Lead.score >= min_score)
     if state:
         stmt = stmt.where(Account.state == state)
-    if min_rating is not None:
-        stmt = stmt.where(Account.rating >= min_rating)
+    if min_reviews is not None:
+        stmt = stmt.where(Account.review_count >= min_reviews)
     if origin_zip:
         stmt = stmt.where(Account.origin_zip == origin_zip)
     if search:

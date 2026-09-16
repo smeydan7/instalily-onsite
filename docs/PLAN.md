@@ -43,11 +43,12 @@ reps **view the leads the system generates**.
 
 - Default order: **GAF's recommended ranking** (`gaf_rank`) so it matches the public site.
 - Each row shows: rank, score, company name, rating/reviews, location.
-- **Primary control — ZIP + radius search (built):** a rep types a ZIP and hits Search;
-  the backend ingests that territory (GAF → pipeline) and the list **scopes to that ZIP**
+- **Primary control — ZIP + radius search (built):** a rep types a ZIP, picks a radius
+  (**25 / 50 / 100 mi — the same fixed options GAF offers**), and hits Search; the backend
+  ingests that territory (GAF → pipeline) and the list **scopes to that ZIP**
   (`?origin_zip=`). "Show all territories" clears the scope. This is the main way reps
   drive the tool. **Defaults to 10013 (New York) on open** and self-seeds it on first run.
-- **Refine within scope:** score range, rating, company-name search.
+- **Refine within scope:** score range, min number of ratings, company-name search.
 - **Sort:** score descending by default (rating/reviews/distance available as future
   toggles).
 - **Scoping model:** each account stores the `origin_zip` that surfaced it
@@ -233,8 +234,10 @@ Current orchestrator runs inline (fine for skeleton/demo). Production evolution:
 - GAF's public contractor finder is powered by **Coveo**, an enterprise search engine.
   We talk to Coveo's v2 search API **directly** — no HTML scraping.
 - **Flow (already built, `app/api/datasource.py`):**
-  1. Translate a US ZIP code to lat/lon **offline** with the `pgeocode` library — no
-     external geocoding API, so it stays low-latency.
+  1. Translate a US ZIP code to lat/lon **matching GAF's own geocoder**: a curated
+     override table (exact GAF coords, seeded with 10013) → Google Geocoding if a key is
+     set → offline `pgeocode` fallback. Matching GAF's coordinate is what makes the counts
+     identical at every radius (verified 10013: 25→83, 50→173, 100→361).
   2. Inject the coordinates into a Coveo payload that **exactly replicates GAF's own
      site query** — same pipeline plus `tab=defaultTab` and
      `context.sortingStrategy=gafrecommended-initial`. This returns the identical set and
@@ -323,11 +326,14 @@ not reorder the list.
 
 ### 4.8 ZIP scoping (built) & its evolution
 
-- A rep-entered ZIP is the primary UX. On search we ingest that ZIP's radius and store
+- A rep-entered ZIP + radius is the primary UX. On search we ingest that radius and store
   `origin_zip` on each account, so the lead list filters to `?origin_zip=<zip>`.
+- **Each ZIP search is authoritative.** After a run, the orchestrator **reconciles** the
+  ZIP's scope — contractors previously tagged to that ZIP but not in the new result set are
+  deleted. So changing the radius correctly shrinks/grows the list instead of unioning
+  stale results. Verified: 10013 at r25→83, r10→12, r2→1, back to r25→83.
 - **Last-write-wins caveat:** if the same contractor is surfaced by two overlapping ZIP
-  searches, its `origin_zip` reflects the most recent one. Fine for distinct territories
-  (verified: 30301→GA-only, 90210→CA-only).
+  searches, its `origin_zip` reflects the most recent one. Fine for distinct territories.
 - **Evolve to:** a `search`/`territory` table with a many-to-many link to accounts, so a
   contractor can belong to every ZIP whose radius covers it, and searches become
   first-class, auditable objects.

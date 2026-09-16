@@ -196,12 +196,18 @@ We reproduce GAF's public "find a contractor" search **exactly** — same set, s
 - **GAF's order is preserved.** We store each contractor's position (`gaf_rank`) from that
   search and sort the lead list by it, so the UI mirrors the site. We also compute a
   **lead score** shown alongside as extra signal — it does not reorder the list.
-- **Pagination is kept** for safety (Coveo caps 100/response); with the correct query the
-  counts are small (83 here), but dense results still page through fully.
+- **Radius is fixed to 25 / 50 / 100 miles** — the same options GAF's site offers.
+  Verified against the source of truth for 10013: **25→83, 50→173, 100→361**, exact.
+- **Geocoding matches GAF exactly.** GAF geocodes a ZIP (e.g. 10013 → `40.7217861,
+  -74.0094471`) and computes `distanceinmiles` from that point. Free offline geocoders
+  (pgeocode/nominatim/census) land ~0.4 mi off, which flips one contractor at the
+  100-mile edge (362 vs 361). We resolve ZIPs in this order: a **curated override table**
+  (exact GAF coords, seeded with 10013) → **Google Geocoding** if `GOOGLE_MAPS_API_KEY` is
+  set (matches GAF for any ZIP) → offline **pgeocode** fallback. So 10013 matches at all
+  radii out of the box; set a Google key for exact parity on arbitrary ZIPs.
+- **Pagination is kept** for safety (Coveo caps 100/response); dense results page fully.
 - **Company name** comes from the record title (`gaf_contractor_dba` is often empty in
   this index; we fall back to the title / navigation title).
-- **Radius semantics:** `distanceinmiles` is computed from the ZIP's coordinates via a
-  Coveo geo function; verified against known distances (e.g. Beverly Hills → Sylmar ≈ 16 mi).
 - **No lead "status" field.** Removed — it was our own workflow placeholder (every lead
   defaulted to "new"), not GAF data, so it added noise. Leads now reflect source data plus
   the computed score and insights only.

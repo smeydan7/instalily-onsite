@@ -103,7 +103,7 @@ GAF directory (Coveo) → Pipeline → PostgreSQL → FastAPI → React UI
 
 - **ZIP-driven:** a rep types a ZIP + radius → the system pulls & scores that territory's
   contractors → the ranked lead list scopes to that ZIP.
-- Refine within scope by score, rating, company name.
+- Refine within scope by score, min number of ratings, company name.
 - **Order matches GAF's site** (their recommended ranking), with our lead score alongside.
 - Lead detail = contractor profile + contact + insights.
 - Clean, uncluttered, visually polished — review at a glance, act quickly.
