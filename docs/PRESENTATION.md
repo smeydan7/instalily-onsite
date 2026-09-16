@@ -171,15 +171,19 @@ written separately by the LLM — slide 9.)
    `source_key` + config (`zips`, `radius`).
 2. **Geocode** — ZIP → lat/lon, matching GAF's own geocoder (override table → Google key →
    offline `pgeocode` fallback).
-3. **Ingest (source adapter)** — `GafContractorSource` builds GAF's exact Coveo query and
-   **paginates** through every contractor in the radius. Each becomes a normalized
-   `AccountCandidate`. *New source = one new adapter class; nothing downstream changes.*
-4. **Enrich** — pure functions add derived signals (e.g. review-activity band). No I/O.
-5. **Score** — transparent weighted score (0–100) over rating, review volume, proximity.
-6. **Persist** — upsert the account, sync contact, upsert the primary lead, record
-   `gaf_rank` (a rule-based insight is stored as an LLM fallback only).
-7. **Reconcile & record** — make the ZIP authoritative (remove stale), and log the
-   `IngestionRun` (status, records, errors).
+3. **Ingest** — pull **every** certified contractor in that area from GAF (asking page by
+   page so none are missed) and turn each raw record into one clean, standard shape.
+   *Adding a new data source later = just one new adapter; nothing else changes.*
+4. **Enrich** — add helpful derived facts to each contractor (e.g. bucket them by how
+   active they are, based on their review count).
+5. **Score** — give each contractor a **0–100 fit score** from simple signals: their
+   rating, how many reviews they have, and how close they are.
+6. **Persist (save to DB)** — if we've seen this contractor before (matched by their GAF
+   id) update them, otherwise add them; attach their phone contact and save the lead with
+   its score and GAF rank. Matching by GAF id means **no duplicates**.
+7. **Reconcile & record** — make this search the source of truth for that ZIP: drop any
+   contractor tagged to it before that isn't in the new results. Then log the run (how
+   many, success/failure) for monitoring.
 
 *The real, rep-facing insights are written by the LLM on first lead-detail view (slide 9).*
 
