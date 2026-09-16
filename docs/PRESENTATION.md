@@ -133,15 +133,23 @@ GAF directory (Coveo) → Pipeline → PostgreSQL → FastAPI → React UI
 - **Schema versioning** — Alembic migrations configured (dev can auto-create for speed).
 
 **→ Evolve to full production (we were time-limited here):**
-- **Read replicas** for the rep read load; writes to primary.
-- **Connection pooling** (PgBouncer) as connections grow.
-- **Redis cache** for hot lead lists / reference data.
-- **Soft-deletes + audit log** instead of hard deletes; full change history.
-- **Backups + point-in-time recovery**, slow-query monitoring, alerting.
-- **Partitioning / archival** of old ingestion runs and cold leads.
-- **Multi-tenant access control** (row-level security) to scope reps/teams to their book.
-- **A first-class `search`/`territory` table** (many-to-many to accounts) so a contractor
-  can belong to several overlapping searches — replacing today's last-write-wins `origin_zip`.
+- **Read replicas** — extra copies of the DB to read from, so thousands of reps browsing
+  leads never slow down the writes.
+- **Connection pooling** (PgBouncer) — reuse a small set of DB connections instead of
+  opening one per request, so the DB doesn't get overwhelmed as traffic grows.
+- **Redis cache** — keep the most-viewed lists in fast memory, so common pages load
+  instantly without hitting the DB every time.
+- **Soft-deletes + audit log** — mark rows deleted instead of erasing them, and record
+  who changed what, so nothing is lost and every change is traceable.
+- **Backups + point-in-time recovery** — regular snapshots so we can restore the data to
+  any moment if something goes wrong.
+- **Partitioning / archival** — move old runs and stale leads out of the hot tables, so
+  the data reps use stays small and fast as history piles up.
+- **Multi-tenant access control** (row-level security) — the DB itself enforces that each
+  rep/team only sees their own accounts, even by accident.
+- **A `search`/`territory` table** — model each search as its own record linked to many
+  contractors, so one contractor can belong to several overlapping areas (today a
+  contractor is tagged to just its most recent search ZIP).
 
 ---
 
