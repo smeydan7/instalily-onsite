@@ -32,14 +32,18 @@ Follow one rep's click:
 3. **Behind the scenes**, the backend asks GAF's contractor directory for every certified
    roofing contractor in that area.
 4. **The pipeline processes them:** cleans each record, adds signals (rating, reviews,
-   distance), scores each as a lead, and writes a few plain-English **insights**.
+   distance), gives each a **fit score**, and saves it as a lead.
 5. **Everything is saved** to a database, de-duplicated so re-searching never doubles up.
-6. **The rep sees a ranked list** — same order as GAF's own site — with a fit score.
-7. **Rep clicks a lead** → a detail page: the contractor's profile, how to reach them, and
-   *why* they're worth a call (the insights).
+6. **The rep sees a ranked list** — same order as GAF's own site — with the fit score.
+7. **Rep clicks a lead → the AI writes the sales insights on the spot:** an OpenAI LLM
+   reads that contractor's data and writes plain-English talking points (why now, how to
+   open the conversation, what to pitch). Shown as "why this lead," then cached.
 8. **Rep searches another ZIP** anytime; each search is that area's authoritative list.
 
-> One line: **public data in → ranked, explained leads out → reviewed in a clean UI.**
+> **Two engines, clear split:** the **pipeline** fetches, scores, and stores leads; the
+> **LLM** writes the sales insights when a rep opens a lead.
+>
+> One line: **public data in → ranked leads (pipeline) → AI insights on click → clean UI.**
 
 ---
 
@@ -54,14 +58,16 @@ Follow one rep's click:
 ## 5. Architecture (high level)
 
 ```
-GAF directory (Coveo)  →  Pipeline  →  PostgreSQL  →  FastAPI  →  React UI
-                        ingest·enrich·score·insights
+GAF directory (Coveo) → Pipeline → PostgreSQL → FastAPI → React UI
+                      ingest·enrich·score           │
+                                      OpenAI LLM ────┘   ← writes insights on click
 ```
 
 - **Frontend:** React + TypeScript (Vite).
 - **Backend:** FastAPI (Python), SQLAlchemy, Alembic.
 - **Data store:** PostgreSQL.
-- **Pipeline:** modular, stage-based, source-agnostic.
+- **Pipeline:** modular, stage-based, source-agnostic — fetches, scores, stores leads.
+- **LLM (OpenAI):** writes the rep-facing sales insights, on demand per lead.
 - **Data source:** GAF certified-contractor directory via its Coveo search API.
 
 ---
@@ -78,10 +84,10 @@ GAF directory (Coveo)  →  Pipeline  →  PostgreSQL  →  FastAPI  →  React 
   pill), rating + review count, and location.
 - **Sortable:** click a header to sort the full list by **Score**, **Company** (A–Z), or
   **Rating** (click again to reverse); **#** restores GAF's recommended order.
-- **Scoped by search:** entering a ZIP scopes the list to that area; "show all
-  territories" clears it. Refine with score / min-number-of-ratings / company search.
-- **Lead detail page:** contractor profile, contact, and the generated **insights**
-  ("why this lead"), plus the GAF profile link.
+- **Scoped by search:** entering a ZIP scopes the list to that area. Refine with score /
+  min-number-of-ratings / company search.
+- **Lead detail page:** contractor profile, contact, the **AI-written insights** ("why
+  this lead", tagged AI), and the GAF profile link.
 - **Polished + resilient:** consistent design system, first-class loading / empty / error
   states, responsive down to laptop widths.
 - **Proof:** opens on 10013 → 83 leads, Allied Brothers Home Corporation first — matching
@@ -125,6 +131,9 @@ GAF directory (Coveo)  →  Pipeline  →  PostgreSQL  →  FastAPI  →  React 
 
 **Goal:** a pipeline designed for scale (hundreds→thousands of reps).
 
+The pipeline's job = **fetch → score → store** ranked leads. (The sales insights are
+written separately by the LLM — slide 9.)
+
 ### The pipeline, start to finish
 1. **Trigger** — a ZIP search (or a scheduled territory job) calls the orchestrator with a
    `source_key` + config (`zips`, `radius`).
@@ -135,16 +144,16 @@ GAF directory (Coveo)  →  Pipeline  →  PostgreSQL  →  FastAPI  →  React 
    `AccountCandidate`. *New source = one new adapter class; nothing downstream changes.*
 4. **Enrich** — pure functions add derived signals (e.g. review-activity band). No I/O.
 5. **Score** — transparent weighted score (0–100) over rating, review volume, proximity.
-6. **Generate insights** — rule-based recommendations at ingest, **upgraded to LLM
-   (OpenAI) insights on first lead-detail view** and cached (see slide 9).
-7. **Persist** — upsert the account, sync contact, upsert the primary lead, regenerate
-   insights, record `gaf_rank`.
-8. **Reconcile & record** — make the ZIP authoritative (remove stale), and log the
+6. **Persist** — upsert the account, sync contact, upsert the primary lead, record
+   `gaf_rank` (a rule-based insight is stored as an LLM fallback only).
+7. **Reconcile & record** — make the ZIP authoritative (remove stale), and log the
    `IngestionRun` (status, records, errors).
+
+*The real, rep-facing insights are written by the LLM on first lead-detail view (slide 9).*
 
 ### Why it scales
 - **Decoupled stages** — each is small and independently replaceable/scalable; pure
-  compute (enrich/score/insights) separated from I/O.
+  compute (enrich/score) separated from I/O.
 - **Pre-compute, then serve** — heavy work runs in the pipeline; the rep-facing API just
   reads ready rows. This is the key to serving many reps cheaply.
 - **Geographic fan-out** — ingestion is a list of `(zip, radius)` jobs (one per branch),
@@ -194,7 +203,8 @@ GAF directory (Coveo)  →  Pipeline  →  PostgreSQL  →  FastAPI  →  React 
 
 ## 11. Key Design Decisions (defend these)
 
-- **Modular pipeline stages** — swap/scale any stage independently; AI drops into one.
+- **Modular pipeline stages** — swap/scale any stage independently; the LLM writes
+  insights in its own stage, cleanly separated from fetch/score/store.
 - **Source adapter pattern** — new data sources are additive, not invasive.
 - **Exact-match the source** — replicate GAF's query + geocoding so reps trust the data.
 - **Pre-compute over on-demand** — keeps the rep UI fast at scale.
@@ -206,12 +216,12 @@ GAF directory (Coveo)  →  Pipeline  →  PostgreSQL  →  FastAPI  →  React 
 ## 12. What's Built vs. What's Planned
 
 - **Built + verified end-to-end:** exact-match GAF source → pipeline (ingest, enrich,
-  score, insights, upsert, reconcile, run tracking) → scored/ranked leads → polished rep
-  UI (ZIP search, scoping, filters, lead detail).
-- **Demo proof:** search a ZIP → leads in GAF's exact order and count; change radius →
-  set updates correctly; re-run → no duplicates.
-- **Planned (designed, outlined):** task queue + workers, incremental ingest, LLM insight
-  generation, named-decision-maker enrichment, auth/roles, caching/replicas.
+  score, upsert, reconcile, run tracking) → scored/ranked leads → **LLM-written insights**
+  → polished rep UI (ZIP search, scoping, filters, sortable columns, lead detail).
+- **Demo proof:** search a ZIP → leads in GAF's exact order and count; open a lead → AI
+  insights appear; change radius → set updates correctly; re-run → no duplicates.
+- **Planned (designed, outlined):** task queue + workers, incremental ingest,
+  named-decision-maker enrichment, auth/roles, caching/replicas.
 
 ---
 
@@ -244,5 +254,5 @@ GAF directory (Coveo)  →  Pipeline  →  PostgreSQL  →  FastAPI  →  React 
   flexible source fields. Best of both.
 - **"How does it scale to thousands of reps?"** — Pre-compute + cache + read replicas;
   stateless API; pipeline fans out per territory ZIP across workers.
-- **"What would you build next?"** — Task queue, LLM insights, contact enrichment,
-  auth/roles, caching/replicas. Detailed in `PLAN.md`.
+- **"What would you build next?"** — Task queue, contact enrichment (named decision
+  makers), auth/roles, caching/replicas. Detailed in `PLAN.md`.
