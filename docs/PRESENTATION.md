@@ -102,10 +102,25 @@ GAF directory (Coveo) → Pipeline → PostgreSQL → FastAPI → React UI
 
 **Goal:** store, organize, retrieve data; production-suitable.
 
+**Key files:** `backend/app/models/` (`account.py`, `contact.py`, `lead.py`,
+`insight.py`, `data_source.py`), `app/db/session.py`, `app/services/lead_service.py`,
+`app/pipeline/orchestrator.py` (upsert + reconcile), `backend/alembic/`.
+
 **Built now:**
 - **PostgreSQL** — relational, reliable, strong at the ranking/filtering leads need.
-- **Clear schema** — `accounts`, `contacts`, `leads`, `insights`, `data_sources`,
-  `ingestion_runs`; timestamps on every row.
+- **Clear schema — what each table is for:**
+  - `accounts` — the **prospect companies** (each GAF contractor); name, location, rating,
+    review count, certification, `gaf_rank`, `origin_zip`, and source identity.
+  - `contacts` — **people/channels to reach an account** (today the company phone; named
+    decision makers are the planned enrichment).
+  - `leads` — a **scored, actionable opportunity** tied to one account (the fit score); the
+    row reps act on.
+  - `insights` — the **recommendations shown per lead** ("why this lead"), with type,
+    body, confidence, and evidence (AI-written; rule-based fallback).
+  - `data_sources` — the **registered sources** the pipeline can pull from (e.g. GAF).
+  - `ingestion_runs` — the **history of each pipeline run** (status, records, errors) for
+    observability.
+  - Every row carries `created_at` / `updated_at` timestamps.
 - **Flexible where messy** — JSON columns (`attributes`, `evidence`) absorb source-specific
   fields without a migration per quirk.
 - **Indexed for the real queries** — `gaf_rank`, `origin_zip`, `state`, `rating`,
@@ -133,6 +148,12 @@ GAF directory (Coveo) → Pipeline → PostgreSQL → FastAPI → React UI
 ## 8. ✅ Objective 3 — Scalable Pipeline, explained end-to-end
 
 **Goal:** a pipeline designed for scale (hundreds→thousands of reps).
+
+**Key files:** `backend/app/pipeline/orchestrator.py` (runs the stages),
+`app/pipeline/sources/base.py` + `sources/gaf_source.py` (source adapter),
+`app/pipeline/enrichment/enrichers.py`, `app/pipeline/scoring/scorer.py`,
+`app/integrations/gaf_coveo.py` (fetch + geocode), `app/api/v1/endpoints/pipeline.py`
+(trigger + run history).
 
 The pipeline's job = **fetch → score → store** ranked leads. (The sales insights are
 written separately by the LLM — slide 9.)
@@ -170,6 +191,11 @@ written separately by the LLM — slide 9.)
 ---
 
 ## 9. ✅ AI-powered insights (built)
+
+**Key files:** `backend/app/integrations/openai_insights.py` (the OpenAI call + prompt),
+`app/services/insight_service.py` (lazy generate + cache), `app/api/v1/endpoints/leads.py`
+(lead-detail endpoint triggers it), `app/models/insight.py`, and the **AI** badge in
+`frontend/src/pages/LeadDetailPage.tsx`.
 
 - **What it does:** an **LLM (OpenAI)** writes the rep-facing insights on each lead —
   concrete talking points to **identify, understand, and engage** the decision maker
