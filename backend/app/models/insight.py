@@ -31,4 +31,4 @@ class Insight(Base, TimestampMixin):
     # Provenance — which source(s)/records this was derived from, for traceability.
     evidence: Mapped[dict] = mapped_column(JSON, default=dict)
 
-    account: Mapped["Account"] = relationship(back_populates="insights")
+    account: Mapped[Account] = relationship(back_populates="insights")

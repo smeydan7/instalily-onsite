@@ -1,12 +1,6 @@
-import type { LeadStatus } from "../api/types";
-
 export function ScorePill({ score }: { score: number }) {
   const tier = score >= 70 ? "high" : score >= 40 ? "mid" : "low";
   return <span className={`score score-${tier}`}>{score.toFixed(0)}</span>;
-}
-
-export function StatusBadge({ status }: { status: LeadStatus }) {
-  return <span className={`badge badge-${status}`}>{status}</span>;
 }
 
 export function Rating({

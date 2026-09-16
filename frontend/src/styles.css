@@ -99,6 +99,14 @@ h1 { margin-top: 0; }
 }
 .ingest button:disabled { opacity: 0.6; cursor: default; }
 
+/* Scope indicator */
+.scope { margin: 4px 0 12px; }
+.linkbtn {
+  background: none; border: 0; color: #2563eb; cursor: pointer;
+  font-weight: 600; margin-left: 10px; padding: 0; font-size: 13px;
+}
+.linkbtn:hover { text-decoration: underline; }
+
 /* Filters */
 .filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
 .filters input, .filters select {

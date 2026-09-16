@@ -1,22 +1,75 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
-import type { LeadFilters, LeadStatus } from "../api/types";
-import { LEAD_STATUSES } from "../api/types";
-import { ScorePill, StatusBadge, Rating, StateBlock } from "../components/ui";
-import IngestPanel from "../components/IngestPanel";
+import type { LeadFilters } from "../api/types";
+import { ScorePill, Rating, StateBlock } from "../components/ui";
+
+// New York (10013) is the default territory shown on open.
+const DEFAULT_ZIP = "10013";
 
 export default function LeadsPage() {
-  const [filters, setFilters] = useState<LeadFilters>({});
+  // ZIP search is the primary driver: entering a ZIP ingests that territory and
+  // scopes the list to it. Secondary filters refine within the current scope.
+  const [zip, setZip] = useState(DEFAULT_ZIP);
+  const [radius, setRadius] = useState(25);
+  const [activeZip, setActiveZip] = useState<string | undefined>(DEFAULT_ZIP);
+  const [refining, setRefining] = useState<Omit<LeadFilters, "origin_zip">>({});
+  const [searching, setSearching] = useState(false);
+  const didSeed = useRef(false);
+  const qc = useQueryClient();
+
+  const filters: LeadFilters = { ...refining, origin_zip: activeZip };
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["leads", filters],
     queryFn: () => api.listLeads(filters, 100),
+    refetchInterval: searching ? 1500 : false,
   });
 
+  // Stop the "searching" spinner once scoped results arrive.
+  useEffect(() => {
+    if (searching && (data?.total ?? 0) > 0) setSearching(false);
+  }, [searching, data]);
+
+  const ingest = useMutation({
+    mutationFn: (target: { zip: string; radius: number }) =>
+      api.triggerIngest([target.zip], target.radius),
+    onSuccess: (_res, target) => {
+      setActiveZip(target.zip);
+      setSearching(true);
+      // Safety: stop polling after ~20s even if nothing came back.
+      setTimeout(() => setSearching(false), 20000);
+    },
+  });
+
+  // On first open, if the default territory has no leads yet, seed it once.
+  useEffect(() => {
+    if (
+      !didSeed.current &&
+      activeZip === DEFAULT_ZIP &&
+      data &&
+      data.total === 0 &&
+      !searching &&
+      !ingest.isPending
+    ) {
+      didSeed.current = true;
+      ingest.mutate({ zip: DEFAULT_ZIP, radius: 25 });
+    }
+  }, [data, activeZip, searching, ingest]);
+
+  const runSearch = () => {
+    if (/^\d{5}$/.test(zip)) ingest.mutate({ zip, radius });
+  };
+
+  const set = (patch: Partial<LeadFilters>) => setRefining((f) => ({ ...f, ...patch }));
+  const clearScope = () => {
+    setActiveZip(undefined);
+    setSearching(false);
+    qc.invalidateQueries({ queryKey: ["leads"] });
+  };
+
   const leads = data?.items ?? [];
-  const set = (patch: Partial<LeadFilters>) => setFilters((f) => ({ ...f, ...patch }));
 
   return (
     <section>
@@ -24,56 +77,78 @@ export default function LeadsPage() {
         <div>
           <h1>Leads</h1>
           <p className="muted">
-            GAF-certified contractors, scored and ranked. Highest-fit first.
+            Enter a ZIP to pull GAF-certified contractors near it, scored and ranked.
           </p>
         </div>
       </div>
 
-      <IngestPanel />
+      {/* Primary: ZIP search */}
+      <div className="ingest">
+        <div className="ingest-row">
+          <label>
+            ZIP code
+            <input
+              value={zip}
+              onChange={(e) => setZip(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={(e) => e.key === "Enter" && runSearch()}
+              maxLength={5}
+              inputMode="numeric"
+              placeholder="e.g. 30301"
+            />
+          </label>
+          <label>
+            Radius (mi)
+            <input
+              type="number"
+              value={radius}
+              min={1}
+              max={100}
+              onChange={(e) => setRadius(Number(e.target.value))}
+            />
+          </label>
+          <button onClick={runSearch} disabled={ingest.isPending || zip.length !== 5}>
+            {ingest.isPending ? "Starting…" : "Search"}
+          </button>
+        </div>
+        {ingest.isError && <p className="error small">{String(ingest.error)}</p>}
+      </div>
 
+      {/* Scope indicator */}
+      {activeZip && (
+        <p className="scope">
+          Showing contractors near <strong>{activeZip}</strong>
+          {searching && <span className="muted"> · searching…</span>}
+          <button className="linkbtn" onClick={clearScope}>
+            show all territories
+          </button>
+        </p>
+      )}
+
+      {/* Secondary: refine within scope */}
       <div className="filters">
         <input
           placeholder="Search company…"
-          value={filters.search ?? ""}
+          value={refining.search ?? ""}
           onChange={(e) => set({ search: e.target.value || undefined })}
         />
-        <select
-          value={filters.status ?? ""}
-          onChange={(e) =>
-            set({ status: (e.target.value || undefined) as LeadStatus | undefined })
-          }
-        >
-          <option value="">All statuses</option>
-          {LEAD_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-        <input
-          placeholder="State (e.g. CA)"
-          maxLength={2}
-          value={filters.state ?? ""}
-          onChange={(e) => set({ state: e.target.value.toUpperCase() || undefined })}
-        />
         <label className="range">
-          Min score {filters.min_score ?? 0}
+          Min score {refining.min_score ?? 0}
           <input
             type="range"
             min={0}
             max={100}
-            value={filters.min_score ?? 0}
+            value={refining.min_score ?? 0}
             onChange={(e) => set({ min_score: Number(e.target.value) || undefined })}
           />
         </label>
         <label className="range">
-          Min rating {filters.min_rating ?? 0}
+          Min rating {refining.min_rating ?? 0}
           <input
             type="range"
             min={0}
             max={5}
             step={0.5}
-            value={filters.min_rating ?? 0}
+            value={refining.min_rating ?? 0}
             onChange={(e) => set({ min_rating: Number(e.target.value) || undefined })}
           />
         </label>
@@ -85,21 +160,28 @@ export default function LeadsPage() {
         loading={isLoading}
         error={error}
         empty={leads.length === 0}
-        emptyText="No leads yet. Pull a territory above to generate some."
+        emptyText={
+          searching
+            ? "Searching that ZIP…"
+            : activeZip
+              ? `No contractors found near ${activeZip}.`
+              : "Enter a ZIP above to find contractors."
+        }
       >
         <table className="grid">
           <thead>
             <tr>
+              <th>#</th>
               <th>Score</th>
               <th>Company</th>
               <th>Rating</th>
               <th>Location</th>
-              <th>Status</th>
             </tr>
           </thead>
           <tbody>
-            {leads.map((l) => (
+            {leads.map((l, i) => (
               <tr key={l.id}>
+                <td className="muted">{i + 1}</td>
                 <td>
                   <ScorePill score={l.score} />
                 </td>
@@ -114,9 +196,6 @@ export default function LeadsPage() {
                 <td>
                   {l.account?.city ?? "—"}
                   {l.account?.state ? `, ${l.account.state}` : ""}
-                </td>
-                <td>
-                  <StatusBadge status={l.status} />
                 </td>
               </tr>
             ))}

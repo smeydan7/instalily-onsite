@@ -3,11 +3,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
-from app.models.enums import LeadStatus
 
 if TYPE_CHECKING:
     from app.models.account import Account
@@ -31,9 +30,6 @@ class Lead(Base, TimestampMixin):
 
     # 0..100. Assigned by the scoring stage of the pipeline.
     score: Mapped[float] = mapped_column(Float, default=0.0, index=True)
-    status: Mapped[LeadStatus] = mapped_column(
-        Enum(LeadStatus), default=LeadStatus.NEW, index=True
-    )
 
-    account: Mapped["Account"] = relationship(back_populates="leads")
-    contact: Mapped["Contact | None"] = relationship()
+    account: Mapped[Account] = relationship(back_populates="leads")
+    contact: Mapped[Contact | None] = relationship()

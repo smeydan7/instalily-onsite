@@ -13,4 +13,5 @@ def test_example_source_normalizes_and_scores() -> None:
 
     processed = _process(candidate)
     assert 0.0 <= processed.score <= 100.0
-    assert "size_band" in processed.attributes
+    assert "activity_band" in processed.attributes
+    assert processed.insights  # at least the firmographic summary

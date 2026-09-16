@@ -1,7 +1,7 @@
 """Enricher functions. Each takes and returns an AccountCandidate.
 
-Stubs for now — real enrichers might resolve domains, join firmographic data, infer
-company size bands, or match decision-maker contacts.
+Derive/augment fields before scoring. Real enrichers might later resolve named
+decision-maker contacts (the current source gap) or join external firmographics.
 """
 from __future__ import annotations
 
@@ -12,24 +12,24 @@ from app.pipeline.types import AccountCandidate
 Enricher = Callable[[AccountCandidate], AccountCandidate]
 
 
-def infer_size_band(candidate: AccountCandidate) -> AccountCandidate:
-    """Bucket employee_count into a coarse size band for downstream scoring."""
-    n = candidate.employee_count
+def activity_band(candidate: AccountCandidate) -> AccountCandidate:
+    """Bucket review volume into a coarse activity band for quick scanning."""
+    n = candidate.review_count
     band = None
     if n is not None:
-        if n < 10:
-            band = "micro"
-        elif n < 50:
-            band = "small"
-        elif n < 250:
-            band = "mid"
+        if n < 5:
+            band = "low"
+        elif n < 25:
+            band = "moderate"
+        elif n < 100:
+            band = "high"
         else:
-            band = "large"
-    candidate.attributes["size_band"] = band
+            band = "very_high"
+    candidate.attributes["activity_band"] = band
     return candidate
 
 
 # Applied in order by the orchestrator.
 ENRICHERS: list[Enricher] = [
-    infer_size_band,
+    activity_band,
 ]

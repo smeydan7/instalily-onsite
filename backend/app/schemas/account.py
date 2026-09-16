@@ -12,6 +12,8 @@ class AccountBase(BaseModel):
     city: str | None = None
     state: str | None = None
     country: str | None = None
+    rating: float | None = None
+    review_count: int | None = None
     employee_count: int | None = None
     description: str | None = None
     attributes: dict = {}
@@ -35,3 +37,16 @@ class AccountUpdate(BaseModel):
 
 class AccountRead(ORMModel, AccountBase):
     id: int
+    source_key: str | None = None
+    external_id: str | None = None
+
+
+class AccountSummary(ORMModel):
+    """Compact account view embedded in a lead row."""
+
+    id: int
+    name: str
+    city: str | None = None
+    state: str | None = None
+    rating: float | None = None
+    review_count: int | None = None

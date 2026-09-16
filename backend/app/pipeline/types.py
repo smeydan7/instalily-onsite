@@ -22,6 +22,11 @@ class AccountCandidate:
     """A normalized prospect the pipeline is building up across stages."""
 
     name: str
+
+    # Source identity — the upsert key (e.g. gaf_contractors / gaf_contractor_id).
+    source_key: str | None = None
+    external_id: str | None = None
+
     domain: str | None = None
     industry: str | None = None
     city: str | None = None
@@ -29,6 +34,17 @@ class AccountCandidate:
     country: str | None = None
     employee_count: int | None = None
     description: str | None = None
+
+    # Consumer review signals (GAF) used by scoring/insights.
+    rating: float | None = None
+    review_count: int | None = None
+    distance_miles: float | None = None
+
+    # ZIP whose search surfaced this candidate (for scoping the lead list).
+    origin_zip: str | None = None
+    # Position in the source's returned order (preserves GAF's recommended ranking).
+    rank: int | None = None
+
     attributes: dict = field(default_factory=dict)
 
     # Populated by later stages.

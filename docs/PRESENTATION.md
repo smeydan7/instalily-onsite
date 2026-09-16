@@ -62,7 +62,10 @@ GAF directory (Coveo) → Pipeline → PostgreSQL → FastAPI → React UI
   (bypasses the site's 10-per-page limit).
 - **Per contractor we get:** name, rating, review count, city/state, phone, distance,
   certification type, stable id.
-- **UI just calls** `GET /api/gaf-contractors?zip_code=90210` — no auth/keys client-side.
+- **Exact replication:** using GAF's pipeline + `tab`/`context.sortingStrategy`, we return
+  the *same set in the same order* as the public site (verified 10013/25 mi → 83, first
+  ten position-for-position).
+- **UI just calls** `GET /api/v1/gaf-contractors?zip_code=90210` — no auth/keys client-side.
 
 ---
 
@@ -98,9 +101,11 @@ GAF directory (Coveo) → Pipeline → PostgreSQL → FastAPI → React UI
 
 ## 8. The UI — built around the rep
 
-- **Lead-centric:** the landing view is the ranked list of generated leads.
-- Sort/filter by score, status, region so reps focus on best-fit accounts.
-- Lead detail = account profile + decision-maker contacts + insights in one place.
+- **ZIP-driven:** a rep types a ZIP + radius → the system pulls & scores that territory's
+  contractors → the ranked lead list scopes to that ZIP.
+- Refine within scope by score, rating, company name.
+- **Order matches GAF's site** (their recommended ranking), with our lead score alongside.
+- Lead detail = contractor profile + contact + insights.
 - Clean, uncluttered, visually polished — review at a glance, act quickly.
 
 ---
@@ -127,12 +132,14 @@ GAF directory (Coveo) → Pipeline → PostgreSQL → FastAPI → React UI
 
 ## 11. What's Built vs. What's Planned
 
-- **Built:** skeleton (API, data model, pipeline framework, UI shell, tests, Docker) +
-  the **live GAF data source** (`/api/gaf-contractors`, real contractor data).
-- **Next:** lead experience UI; wire GAF into the pipeline (`GafContractorSource`) to
-  persist scored leads.
-- **Planned:** task queue, incremental ingest, contact enrichment, auth, polish.
-- Adapter design lets GAF flow through **without reworking anything downstream**.
+- **Built + verified end-to-end:** live GAF source → pipeline ingest (`GafContractorSource`,
+  upsert on `gaf_contractor_id`) → scored leads with insights → polished rep UI (ranked
+  leads list, filters, lead detail, one-click "pull a territory").
+- **Demo proof:** search a ZIP, leads appear in GAF's exact order and count; re-run
+  doesn't duplicate.
+- **Planned (designed, not built):** task queue + workers, incremental ingest, contact
+  enrichment (named decision makers), auth/roles, caching/replicas.
+- Adapter design let GAF flow through **without reworking anything downstream**.
 
 ---
 

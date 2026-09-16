@@ -33,25 +33,6 @@ export interface AccountSummary {
   review_count?: number | null;
 }
 
-export type LeadStatus =
-  | "new"
-  | "reviewing"
-  | "qualified"
-  | "engaged"
-  | "won"
-  | "lost"
-  | "dismissed";
-
-export const LEAD_STATUSES: LeadStatus[] = [
-  "new",
-  "reviewing",
-  "qualified",
-  "engaged",
-  "won",
-  "lost",
-  "dismissed",
-];
-
 export interface Lead {
   id: number;
   account_id: number;
@@ -59,7 +40,6 @@ export interface Lead {
   title: string;
   summary?: string | null;
   score: number;
-  status: LeadStatus;
   account?: AccountSummary | null;
 }
 
@@ -102,9 +82,9 @@ export interface IngestionRun {
 }
 
 export interface LeadFilters {
-  status?: LeadStatus;
   min_score?: number;
   min_rating?: number;
   state?: string;
+  origin_zip?: string;
   search?: string;
 }

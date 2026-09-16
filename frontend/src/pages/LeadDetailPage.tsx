@@ -1,27 +1,16 @@
 import { Link, useParams } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
-import type { LeadStatus } from "../api/types";
-import { LEAD_STATUSES } from "../api/types";
 import { ScorePill, Rating } from "../components/ui";
 
 export default function LeadDetailPage() {
   const { id } = useParams();
   const leadId = Number(id);
-  const qc = useQueryClient();
 
   const { data: lead, isLoading, error } = useQuery({
     queryKey: ["lead", leadId],
     queryFn: () => api.getLead(leadId),
     enabled: Number.isFinite(leadId),
-  });
-
-  const mutation = useMutation({
-    mutationFn: (status: LeadStatus) => api.updateLeadStatus(leadId, status),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["lead", leadId] });
-      qc.invalidateQueries({ queryKey: ["leads"] });
-    },
   });
 
   if (isLoading) return <p className="muted">Loading…</p>;
@@ -46,17 +35,8 @@ export default function LeadDetailPage() {
           </p>
         </div>
         <div className="detail-score">
+          <span className="muted small">Lead score</span>
           <ScorePill score={lead.score} />
-          <select
-            value={lead.status}
-            onChange={(e) => mutation.mutate(e.target.value as LeadStatus)}
-          >
-            {LEAD_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
         </div>
       </div>
 

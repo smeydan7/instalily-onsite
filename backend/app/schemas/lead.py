@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from app.models.enums import LeadStatus
+from app.schemas.account import AccountRead, AccountSummary
 from app.schemas.common import ORMModel
+from app.schemas.contact import ContactRead
+from app.schemas.insight import InsightRead
 
 
 class LeadBase(BaseModel):
@@ -12,20 +14,21 @@ class LeadBase(BaseModel):
     title: str
     summary: str | None = None
     score: float = 0.0
-    status: LeadStatus = LeadStatus.NEW
 
 
 class LeadCreate(LeadBase):
     pass
 
 
-class LeadUpdate(BaseModel):
-    contact_id: int | None = None
-    title: str | None = None
-    summary: str | None = None
-    score: float | None = None
-    status: LeadStatus | None = None
-
-
 class LeadRead(ORMModel, LeadBase):
     id: int
+    account: AccountSummary | None = None
+
+
+class LeadDetail(ORMModel, LeadBase):
+    """Full lead view for the detail page: lead + account + contacts + insights."""
+
+    id: int
+    account: AccountRead | None = None
+    contacts: list[ContactRead] = []
+    insights: list[InsightRead] = []

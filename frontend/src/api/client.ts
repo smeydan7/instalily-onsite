@@ -6,7 +6,6 @@ import type {
   Lead,
   LeadDetail,
   LeadFilters,
-  LeadStatus,
   Page,
 } from "./types";
 
@@ -30,10 +29,10 @@ function leadQuery(filters: LeadFilters, limit: number, offset: number): string 
   const p = new URLSearchParams();
   p.set("limit", String(limit));
   p.set("offset", String(offset));
-  if (filters.status) p.set("status", filters.status);
   if (filters.min_score != null) p.set("min_score", String(filters.min_score));
   if (filters.min_rating != null) p.set("min_rating", String(filters.min_rating));
   if (filters.state) p.set("state", filters.state);
+  if (filters.origin_zip) p.set("origin_zip", filters.origin_zip);
   if (filters.search) p.set("search", filters.search);
   return p.toString();
 }
@@ -43,12 +42,6 @@ export const api = {
     request<Page<Lead>>(`/leads?${leadQuery(filters, limit, offset)}`),
 
   getLead: (id: number) => request<LeadDetail>(`/leads/${id}`),
-
-  updateLeadStatus: (id: number, status: LeadStatus) =>
-    request<Lead>(`/leads/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    }),
 
   listAccounts: (limit = 50, offset = 0) =>
     request<Page<Account>>(`/accounts?limit=${limit}&offset=${offset}`),

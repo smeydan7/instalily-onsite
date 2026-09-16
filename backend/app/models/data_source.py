@@ -27,7 +27,7 @@ class DataSource(Base, TimestampMixin):
     # Non-secret per-source settings; secrets live in env, not here.
     config: Mapped[dict] = mapped_column(JSON, default=dict)
 
-    runs: Mapped[list["IngestionRun"]] = relationship(
+    runs: Mapped[list[IngestionRun]] = relationship(
         back_populates="source", cascade="all, delete-orphan"
     )
 
@@ -50,4 +50,4 @@ class IngestionRun(Base, TimestampMixin):
     error: Mapped[str | None] = mapped_column(Text)
     stats: Mapped[dict] = mapped_column(JSON, default=dict)
 
-    source: Mapped["DataSource"] = relationship(back_populates="runs")
+    source: Mapped[DataSource] = relationship(back_populates="runs")

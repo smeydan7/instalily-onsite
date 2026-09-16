@@ -29,6 +29,9 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+# B008: FastAPI's Depends()/Query() in defaults is the framework's own idiom.
+# UP042: str + Enum is intentional (JSON-serializable enum values).
+ignore = ["B008", "UP042"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

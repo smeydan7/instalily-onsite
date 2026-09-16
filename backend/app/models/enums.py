@@ -4,16 +4,6 @@ from __future__ import annotations
 import enum
 
 
-class LeadStatus(str, enum.Enum):
-    NEW = "new"
-    REVIEWING = "reviewing"
-    QUALIFIED = "qualified"
-    ENGAGED = "engaged"
-    WON = "won"
-    LOST = "lost"
-    DISMISSED = "dismissed"
-
-
 class InsightType(str, enum.Enum):
     OPPORTUNITY = "opportunity"       # e.g. a signal the account is expanding
     RISK = "risk"                     # e.g. churn / competitor signal

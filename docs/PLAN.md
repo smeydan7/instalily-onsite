@@ -41,34 +41,37 @@ reps **view the leads the system generates**.
 
 ### 1.2 Leads list — the centerpiece
 
-- Default sort: **score descending** (best-fit leads first).
-- Each row shows: score, account name, region, status, a one-line "why" (top insight).
-- **Filter bar:** status, score range, region/state, rating, review count.
-- **Search:** by account name; and **by ZIP + radius** (natural for GAF — "contractors
-  near this branch"), which can drive either a live `/api/gaf-contractors` lookup or a
-  filter over pre-computed leads.
-- **Sort toggles:** score, rating, review count, distance, recency, name.
-- **Status controls:** rep can move a lead through `new → reviewing → qualified →
-  engaged → won/lost/dismissed` inline.
+- Default order: **GAF's recommended ranking** (`gaf_rank`) so it matches the public site.
+- Each row shows: rank, score, company name, rating/reviews, location.
+- **Primary control — ZIP + radius search (built):** a rep types a ZIP and hits Search;
+  the backend ingests that territory (GAF → pipeline) and the list **scopes to that ZIP**
+  (`?origin_zip=`). "Show all territories" clears the scope. This is the main way reps
+  drive the tool. **Defaults to 10013 (New York) on open** and self-seeds it on first run.
+- **Refine within scope:** score range, rating, company-name search.
+- **Sort:** score descending by default (rating/reviews/distance available as future
+  toggles).
+- **Scoping model:** each account stores the `origin_zip` that surfaced it
+  (last-write-wins). Good enough now; a future many-to-many (a lead can belong to several
+  overlapping searched ZIPs) is noted in §4.
 - **Pagination / infinite scroll** — server-driven, since lead volume grows.
 - **Empty + loading + error states** — first-class, not afterthoughts.
 
 ### 1.3 Lead detail — everything in one place
 
-- **Header:** contractor name, score, status control, rating + review count, distance.
+- **Header:** contractor name, score, rating + review count, distance.
 - **Why this lead:** the generated insights (opportunity / risk / engagement /
   firmographic), each with its confidence and evidence.
 - **Decision makers / contact:** company phone now; named decision makers once enrichment
   lands (see Section 4.5).
 - **Account facts:** location, certification type, rating/reviews, GAF profile link,
   source-provided attributes.
-- **Rep actions:** change status, (future) add notes, (future) mark outreach.
+- **Rep actions (future):** add notes, mark outreach, save/shortlist.
 
 ### 1.4 Visual design
 
 - Design system: a small set of tokens (color, spacing, radius, typography) applied
   consistently. Restrained, professional palette — data-dense but uncluttered.
-- Components: table/grid, card, tag/badge (for insight types & lead status), filter
+- Components: table/grid, card, tag/badge (for insight types), filter
   controls, score indicator, empty/loading/error blocks.
 - Accessible: readable contrast, keyboard-navigable, sensible focus states.
 - Responsive down to laptop widths; graceful narrower.
@@ -82,14 +85,14 @@ reps **view the leads the system generates**.
 - Typed API client mirroring backend schemas (`src/api/types.ts` kept in sync).
 - Routing via react-router.
 - **Evolve to:** generated client from the backend OpenAPI spec (removes hand-sync);
-  optimistic updates for status changes; URL-encoded filter state for shareable views.
+  URL-encoded filter/scope state for shareable views.
 
 ### 1.6 Frontend build order
 
 1. Design tokens + shared components (table, card, tag, states).
 2. Leads list with server-driven filter/sort/pagination.
 3. Lead detail view.
-4. Inline status updates.
+4. ZIP search + scope, default territory.
 5. Accounts + Insights secondary pages.
 6. Polish pass: spacing, empty states, transitions, responsiveness.
 
@@ -107,21 +110,21 @@ evolution path.
 - **JSON(B) columns** on entities (`attributes`, `evidence`) absorb messy,
   source-specific fields without a migration per source quirk.
 - **Why not NoSQL:** our access patterns are relational and query-heavy (sort by score,
-  filter by status/region). Postgres + JSONB gives flexibility without giving up SQL.
+  filter by rating/region). Postgres + JSONB gives flexibility without giving up SQL.
 
 ### 2.2 Schema (already modeled)
 
 - `accounts` — prospect companies (+ JSON `attributes`).
 - `contacts` — people at accounts (decision makers).
-- `leads` — scored opportunities (score, status), FK to account/contact.
+- `leads` — scored opportunities (score), FK to account/contact.
 - `insights` — generated recommendations (type, confidence, JSON `evidence`).
 - `data_sources` + `ingestion_runs` — source registry + run history.
 - Timestamps (`created_at`/`updated_at`) on every table via a mixin.
 
 ### 2.3 Access patterns & indexing
 
-- Index the columns reps filter/sort on: `leads.score`, `leads.status`,
-  `accounts.name`, `accounts.domain`, `contacts.email`, FKs.
+- Index the columns reps filter/sort on: `leads.score`, `accounts.gaf_rank`,
+  `accounts.origin_zip`, `accounts.state`, `accounts.rating`, `accounts.name`, FKs.
 - Pagination is **offset/limit now**, **keyset (cursor) later** for large tables.
 - Read paths go through a **service layer** (already present) so query logic is
   centralized and testable.
@@ -232,10 +235,18 @@ Current orchestrator runs inline (fine for skeleton/demo). Production evolution:
 - **Flow (already built, `app/api/datasource.py`):**
   1. Translate a US ZIP code to lat/lon **offline** with the `pgeocode` library — no
      external geocoding API, so it stays low-latency.
-  2. Inject the coordinates into a Coveo search payload that mimics a browser request.
-  3. Set `numberOfResults=100` to **bypass the frontend's 10-item pagination** and pull
-     all contractors within the radius in one call.
+  2. Inject the coordinates into a Coveo payload that **exactly replicates GAF's own
+     site query** — same pipeline plus `tab=defaultTab` and
+     `context.sortingStrategy=gafrecommended-initial`. This returns the identical set and
+     ordering the public site shows (verified: 10013/25 mi → 83 results, first ten match
+     position-for-position).
+  3. **Paginate** through all matches (100 per page) until the full set is retrieved,
+     bounded by a hard cap (1000).
   4. POST to Coveo with the public authorization token GAF's own frontend ships.
+
+We store each contractor's position (`gaf_rank`) and order the lead list by it, so the UI
+mirrors GAF's ranking. The computed lead score is shown alongside as extra signal and does
+not reorder the list.
 - **Auth note:** the Coveo org id + token are the public tokens from GAF's browser
   frontend — not real secrets. They live in `settings` (config), not hardcoded, so they
   can be rotated/overridden per environment.
@@ -246,9 +257,9 @@ Current orchestrator runs inline (fine for skeleton/demo). Production evolution:
   a plain GET — no headers, keys, or body:
 
   ```
-  GET /api/gaf-contractors                      # defaults: zip 10013, radius 25 mi
-  GET /api/gaf-contractors?zip_code=90210       # search near a ZIP
-  GET /api/gaf-contractors?zip_code=90210&distance=25   # override radius
+  GET /api/v1/gaf-contractors                      # defaults: zip 10013, radius 25 mi
+  GET /api/v1/gaf-contractors?zip_code=90210       # search near a ZIP
+  GET /api/v1/gaf-contractors?zip_code=90210&distance=25   # override radius
   ```
 
 - **Response:** a flat object — `zip_searched`, `coordinates` (lat/lon),
@@ -259,7 +270,7 @@ Current orchestrator runs inline (fine for skeleton/demo). Production evolution:
 | Coveo field | Meaning | Maps to |
 |-------------|---------|---------|
 | `gaf_contractor_id` | Stable contractor id | **Account identity** (dedup key) |
-| `gaf_contractor_dba` | Company name | `Account.name` |
+| result `title` / `gaf_navigation_title` | Company name (`gaf_contractor_dba` is often null) | `Account.name` |
 | `gaf_contractor_type` | Certification tier / type | `Account.attributes`, scoring signal |
 | `gaf_rating` | Consumer review rating | scoring signal + insight |
 | `gaf_number_of_reviews` | Review volume | scoring signal (activity proxy) |
@@ -285,26 +296,47 @@ Current orchestrator runs inline (fine for skeleton/demo). Production evolution:
 - No firmographics like employee count/revenue — we infer activity from review metrics
   instead, and can enrich later.
 
-### 4.6 Two integration modes
+### 4.6 Two integration modes (both built)
 
-1. **Live passthrough (built):** the UI hits `/api/gaf-contractors` for on-demand search
-   by ZIP. Great for "look up contractors near this branch right now."
-2. **Pipeline pre-compute (planned):** a `GafContractorSource` adapter reuses the same
-   fetch logic to ingest contractors across the distributor's branch ZIPs, dedup by
+1. **Live passthrough:** the UI can hit `/api/v1/gaf-contractors` for on-demand search by
+   ZIP. Raw, real-time look-up near a branch.
+2. **Pipeline pre-compute:** the `GafContractorSource` adapter reuses the same Coveo
+   integration to ingest contractors across the distributor's branch ZIPs, dedup by
    `gaf_contractor_id`, score them, generate insights, and **persist leads** — so the
    rep-facing lead list is instant and enriched, not a live API round-trip each time.
 
-### 4.7 Turning it into a pipeline source (next implementation step)
+### 4.7 The pipeline source (built)
 
-- Subclass `BaseSource` as `GafContractorSource`:
-  - `fetch()` → call `search_contractors(zip, radius)` for each configured territory ZIP.
-  - `normalize()` → map a contractor object to an `AccountCandidate` (fields per 4.3),
-    set `provenance = {"gaf": [gaf_contractor_id]}`, attach a phone `Contact`.
-- Register it in `SOURCE_REGISTRY` and add a `data_sources` row.
-- Switch persistence from create-only to **upsert on `gaf_contractor_id`** so repeated
-  runs (overlapping ZIP radii) don't duplicate accounts.
-- Everything downstream (enrichment, scoring, insights, API, UI) already consumes the
-  normalized shape — no changes needed there.
+- `app/pipeline/sources/gaf_source.py` — `GafContractorSource(BaseSource)`:
+  - `fetch()` → `gaf_coveo.search_sync(zip, radius)` for each configured territory ZIP,
+    yielding one `RawRecord` per contractor.
+  - `normalize()` → maps a contractor to an `AccountCandidate` (fields per 4.3), attaches
+    a company-phone `Contact`, sets `provenance = {"gaf_contractors": [id], ...}`.
+- Registered in `SOURCE_REGISTRY`; the orchestrator get-or-creates its `data_sources` row
+  and records each `IngestionRun`.
+- Persistence is **upsert on (`source_key`, `external_id`) = (`gaf_contractors`,
+  `gaf_contractor_id`)**. Re-runs update contractor fields, score, and `gaf_rank` in place;
+  derived insights are regenerated. Verified: re-running the same ZIP keeps the lead count
+  flat (no duplicates).
+- Everything downstream (enrichment, scoring, insights, API, UI) consumes the normalized
+  shape unchanged.
+
+### 4.8 ZIP scoping (built) & its evolution
+
+- A rep-entered ZIP is the primary UX. On search we ingest that ZIP's radius and store
+  `origin_zip` on each account, so the lead list filters to `?origin_zip=<zip>`.
+- **Last-write-wins caveat:** if the same contractor is surfaced by two overlapping ZIP
+  searches, its `origin_zip` reflects the most recent one. Fine for distinct territories
+  (verified: 30301→GA-only, 90210→CA-only).
+- **Evolve to:** a `search`/`territory` table with a many-to-many link to accounts, so a
+  contractor can belong to every ZIP whose radius covers it, and searches become
+  first-class, auditable objects.
+
+### 4.9 Shared integration module
+
+Coveo access lives in `app/integrations/gaf_coveo.py` (geocode, payload, `search_async`
+for the endpoint, `search_sync` for the pipeline) so the live API and the pipeline share
+one implementation. The endpoint (`app/api/datasource.py`) is a thin wrapper.
 
 ---
 
@@ -312,16 +344,18 @@ Current orchestrator runs inline (fine for skeleton/demo). Production evolution:
 
 | Phase | Backend | Frontend | Outcome |
 |-------|---------|----------|---------|
-| **0 — Skeleton** (done) | API, models, pipeline framework, tests, Docker | UI shell + 3 pages, API client | Runs end-to-end on demo data |
-| **1 — Live source** (done) | `/api/gaf-contractors` live Coveo search + pgeocode geocoding | — | Real contractor data reachable via API |
-| **2 — Lead experience** | Lead query filters/sort/pagination | Polished leads list + lead detail + inline status; ZIP search | Reps review real leads |
-| **3 — Pipeline ingest** | `GafContractorSource` adapter; upsert on `gaf_contractor_id`; score + insights; persist leads | Surface scores/insights from stored data | Pre-computed, enriched leads |
+| **0 — Skeleton** ✅ | API, models, pipeline framework, tests, Docker | UI shell + pages, API client | Runs end-to-end |
+| **1 — Live source** ✅ | `/api/v1/gaf-contractors` live Coveo search + pgeocode | — | Real contractor data via API |
+| **2 — Lead experience** ✅ | Lead filters/search; GAF-rank ordering; nested account; lead detail | Polished leads list + detail + ZIP search/scope | Reps review real leads |
+| **3 — Pipeline ingest** ✅ | `GafContractorSource`; upsert on `gaf_contractor_id`; score + insights; persist leads; run tracking | Trigger ingest from UI; surface scores/insights | Pre-computed, enriched leads |
 | **4 — Scale hardening** | Task queue + workers (per-territory jobs); incremental ingest; retries; metrics | Loading/error resilience | Reliable under growth |
 | **5 — Production depth** | Auth/roles; caching; replicas; audit; backups; contact enrichment | Auth UI, admin/run view, dashboard | Production-ready posture |
 
-For the panel/demo timeframe: **Phases 0–1 are built** (skeleton + live GAF data).
-Phase 2–3 are the near-term build; Phases 4–5 we present as designed-and-outlined rather
-than fully implemented, which the brief explicitly allows.
+Phases 0–3 are **built and verified end-to-end** (live GAF ingest → scored leads → UI).
+Phases 4–5 we present as designed-and-outlined rather than fully implemented, which the
+brief explicitly allows. Current pipeline execution uses FastAPI `BackgroundTasks`; the
+orchestrator entry point (`run_source_background`) is shaped to drop behind a real task
+queue with no call-site changes.
 
 ---
 

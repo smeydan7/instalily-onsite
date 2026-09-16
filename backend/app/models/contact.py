@@ -31,4 +31,4 @@ class Contact(Base, TimestampMixin):
 
     attributes: Mapped[dict] = mapped_column(JSON, default=dict)
 
-    account: Mapped["Account"] = relationship(back_populates="contacts")
+    account: Mapped[Account] = relationship(back_populates="contacts")

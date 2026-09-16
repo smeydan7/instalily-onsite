@@ -38,7 +38,7 @@ identify, understand, and engage decision makers.
 - **Frontend** — React + TypeScript + Vite. See `frontend/README.md`.
 - **DB** — PostgreSQL.
 - **Data source** — GAF certified-contractor directory via its Coveo search API.
-  Live endpoint: `GET /api/gaf-contractors?zip_code=90210`. See `docs/PLAN.md` §4.
+  Live endpoint: `GET /api/v1/gaf-contractors?zip_code=90210`. See `docs/PLAN.md` §4.
 
 ## Domain model
 

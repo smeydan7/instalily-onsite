@@ -27,6 +27,21 @@ class Settings(BaseSettings):
     coveo_default_radius_miles: int = 25
     coveo_timeout_seconds: float = 15.0
 
+    # Distributor branch/territory ZIPs the GAF pipeline ingests by default.
+    # Override per run via the pipeline request config.
+    gaf_territory_zips: list[str] = ["10013", "90210", "60601"]
+
+    # Dev convenience: create tables on startup instead of running Alembic.
+    # Production uses migrations — see PLAN.md.
+    auto_create_tables: bool = True
+
+    @field_validator("gaf_territory_zips", mode="before")
+    @classmethod
+    def _split_zips(cls, v: object) -> object:
+        if isinstance(v, str):
+            return [z.strip() for z in v.split(",") if z.strip()]
+        return v
+
     @field_validator("backend_cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, v: object) -> object:
