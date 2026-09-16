@@ -46,8 +46,8 @@ reps **view the leads the system generates**.
 - **Primary control — ZIP + radius search (built):** a rep types a ZIP, picks a radius
   (**25 / 50 / 100 mi — the same fixed options GAF offers**), and hits Search; the backend
   ingests that territory (GAF → pipeline) and the list **scopes to that ZIP**
-  (`?origin_zip=`). "Show all territories" clears the scope. This is the main way reps
-  drive the tool. **Defaults to 10013 (New York) on open** and self-seeds it on first run.
+  (`?origin_zip=`). This is the main way reps drive the tool. **Defaults to 10013 (New
+  York) on open** and self-seeds it on first run.
 - **Refine within scope:** score range, min number of ratings, company-name search.
 - **Column sorting (built):** click a table header to sort the full result set
   server-side — **Score**, **Company** (alphabetical), or **Rating**; click again to flip

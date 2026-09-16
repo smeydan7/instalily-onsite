@@ -82,11 +82,6 @@ export default function LeadsPage() {
   };
 
   const set = (patch: Partial<LeadFilters>) => setRefining((f) => ({ ...f, ...patch }));
-  const clearScope = () => {
-    setActiveZip(undefined);
-    setSearching(false);
-    qc.invalidateQueries({ queryKey: ["leads"] });
-  };
 
   const leads = data?.items ?? [];
 
@@ -135,9 +130,6 @@ export default function LeadsPage() {
         <p className="scope">
           Showing contractors near <strong>{activeZip}</strong>
           {searching && <span className="muted"> · searching…</span>}
-          <button className="linkbtn" onClick={clearScope}>
-            show all territories
-          </button>
         </p>
       )}
 

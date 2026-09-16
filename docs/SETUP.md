@@ -183,9 +183,8 @@ curl "http://localhost:8000/api/v1/leads?limit=5"
 In the UI, this is the main flow: on the **Leads** page, type a ZIP + radius and hit
 **Search**. The page opens on **10013 (New York)** by default and self-seeds it on first
 run. Searching another ZIP ingests that territory and scopes the list to it (e.g. `30301`
-→ Atlanta; `90210` → LA; "show all territories" clears the scope). Re-running is safe —
-contractors upsert on their GAF id, so leads aren't duplicated and any status you've set
-is preserved.
+→ Atlanta; `90210` → LA). Re-running is safe — contractors upsert on their GAF id, so
+leads aren't duplicated.
 
 ## Data notes (correctness)
 
