@@ -213,12 +213,18 @@ written separately by the LLM — slide 9.)
   concrete talking points to **identify, understand, and engage** the decision maker
   (why-now signals, how to open, product/volume angles), grounded in the contractor's real
   data (rating, reviews, certification, proximity).
-- **Where the rep sees it:** open a lead → the "Why this lead" cards are AI-authored,
-  tagged **AI**, with evidence/provenance stored.
-- **Scale-smart design — lazy + cached:** we do **not** call the LLM for every contractor
-  at ingest. Insights are generated on **first lead-detail view** and cached, so we only
-  spend an LLM call on leads a rep actually opens — this is what keeps it affordable across
-  thousands of reps.
+- **When it happens (how it's kicked off) — simple flow:**
+  1. Rep **clicks a lead** to open its detail page.
+  2. That page asks the backend for the lead (`GET /leads/{id}`).
+  3. The backend **checks if this contractor already has AI insights**.
+  4. **If not:** it calls OpenAI right then, saves the insights, and returns them (~a few
+     seconds the first time — the page shows a loading state).
+  5. **If yes:** it just returns the saved ones **instantly** (cached).
+  - So it's triggered **on click of a lead** — never during Search, never for leads nobody
+    opens. The cards are tagged **AI**, with evidence/provenance stored.
+- **Why this design (lazy + cached):** an LLM call happens only for leads a rep actually
+  opens, and only once each — so cost tracks real usage, not catalog size. That's what
+  keeps it affordable across thousands of reps.
 - **Safe fallback:** the score is deterministic; if the LLM key is unset or a call fails,
   the lead keeps its rule-based insights. No hard dependency, no broken page.
 - **Clean seam:** insight generation is its own stage — swapping models (or moving to a
